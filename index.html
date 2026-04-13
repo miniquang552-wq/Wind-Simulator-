@@ -3,36 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ultimativer Windtunnel</title>
+    <title>Advanced Aerodynamics Lab</title>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #050505; color: white; overflow: hidden; display: flex; flex-direction: column; }
-        #ui { position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #00d4ff; z-index: 10; width: 220px; }
-        h3 { margin: 0 0 10px 0; color: #00d4ff; font-size: 16px; text-align: center; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #02040a; color: white; overflow: hidden; display: flex; flex-direction: column; }
+        #ui { position: absolute; top: 10px; left: 10px; background: rgba(13, 17, 23, 0.95); padding: 15px; border-radius: 12px; border: 1px solid #30363d; z-index: 10; width: 220px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
+        h3 { margin: 0 0 10px 0; color: #58a6ff; font-size: 16px; text-align: center; letter-spacing: 1px; }
         .controls { margin-bottom: 10px; }
-        label { display: block; font-size: 11px; color: #888; margin-bottom: 3px; }
-        input[type="range"] { width: 100%; margin-bottom: 10px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        button { background: #222; color: white; border: 1px solid #444; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: 0.2s; }
-        button.active { background: #00d4ff; color: #000; border-color: #00d4ff; font-weight: bold; }
-        #clearBtn { grid-column: span 2; background: #ff4444; border: none; margin-top: 5px; }
+        label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 3px; }
+        input[type="range"] { width: 100%; margin-bottom: 10px; accent-color: #58a6ff; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        button.active { background: #1f6feb; color: white; border-color: #58a6ff; font-weight: bold; }
+        #clearBtn { grid-column: span 2; background: #da3633; border: none; margin-top: 5px; color: white; }
         canvas { display: block; touch-action: none; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h3>Wind-Labor</h3>
+        <h3>AERO PRO v3</h3>
         <div class="controls">
-            <label>Wind-Speed: <span id="speedVal">5</span></label>
-            <input type="range" id="speedRange" min="0" max="20" step="0.5" value="5">
+            <label>Windstärke: <span id="speedVal">6</span></label>
+            <input type="range" id="speedRange" min="0" max="15" step="0.5" value="6">
         </div>
         
-        <label>Modus:</label>
+        <label>Werkzeug:</label>
         <div class="grid">
-            <button id="drawMode" class="active" onclick="setMode('draw')">✏️ Zeichnen</button>
-            <button id="circleMode" onclick="setMode('circle')">⭕ Kreis</button>
-            <button id="rectMode" onclick="setMode('rect')">🟦 Block</button>
-            <button id="clearBtn" onclick="resetObstacles()">🗑️ Löschen</button>
+            <button id="drawMode" class="active" onclick="setMode('draw')">✏️ Freihand</button>
+            <button id="circleMode" onclick="setMode('circle')">⭕ Zylinder</button>
+            <button id="rectMode" onclick="setMode('rect')">🟦 Barriere</button>
+            <button id="clearBtn" onclick="resetObstacles()">🗑️ Reset</button>
         </div>
     </div>
 
@@ -45,7 +45,7 @@
         const speedVal = document.getElementById('speedVal');
 
         let width, height, particles = [], obstacles = [];
-        let windSpeed = 5;
+        let windSpeed = 6;
         let isDrawing = false;
         let currentMode = 'draw';
 
@@ -59,7 +59,8 @@
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             particles = [];
-            for (let i = 0; i < 650; i++) particles.push(new Particle());
+            // Mehr Partikel für bessere Sichtbarkeit der Strömung
+            for (let i = 0; i < 800; i++) particles.push(new Particle());
         }
 
         class Particle {
@@ -67,69 +68,94 @@
             reset(startX) {
                 this.x = startX;
                 this.y = Math.random() * height;
+                this.vx = windSpeed;
+                this.vy = (Math.random() - 0.5) * 0.5; // Leichte natürliche Schwankung
+                this.color = "88, 166, 255";
             }
             update() {
-                let nextX = this.x + windSpeed;
-                let nextY = this.y;
+                // Basis-Windkraft
+                let ax = (windSpeed - this.vx) * 0.1;
+                let ay = -this.vy * 0.1;
 
-                for (let i = 0; i < obstacles.length; i++) {
-                    let obs = obstacles[i];
-                    let dx = nextX - obs.x;
-                    let dy = nextY - obs.y;
+                obstacles.forEach(obs => {
+                    let dx = this.x - obs.x;
+                    let dy = this.y - obs.y;
+                    let distSq = dx*dx + dy*dy;
+                    let r = obs.type === 'draw' ? 18 : 42;
+                    
+                    if (distSq < r*r) {
+                        let dist = Math.sqrt(distSq);
+                        let nx = dx / dist; // Normalenvektor
+                        let ny = dy / dist;
+                        
+                        // Abstoßungskraft (Vermeidung des Eindringens)
+                        let push = (r - dist) * 0.5;
+                        this.x += nx * push;
+                        this.y += ny * push;
 
-                    if (obs.type === 'draw' || obs.type === 'circle') {
-                        let r = obs.type === 'draw' ? 15 : 40;
-                        let distSq = dx*dx + dy*dy;
-                        if (distSq < r*r) {
-                            let dist = Math.sqrt(distSq);
-                            let angle = Math.atan2(dy, dx);
-                            nextX = obs.x + Math.cos(angle) * (r + 2);
-                            nextY = obs.y + Math.sin(angle) * (r + 2);
-                        }
-                    } else if (obs.type === 'rect') {
-                        if (Math.abs(dx) < 40 && Math.abs(dy) < 40) {
-                            nextX = obs.x - 42; 
+                        // Strömung um das Objekt leiten (Tangentialkraft)
+                        let dot = this.vx * nx + this.vy * ny;
+                        this.vx -= 1.5 * dot * nx;
+                        this.vy -= 1.5 * dot * ny;
+
+                        // Wirbel-Simulation hinter dem Objekt
+                        if (dx > 0) { // Wir befinden uns im "Windschatten"
+                            this.vy += Math.sin(this.x * 0.1) * 0.5;
                         }
                     }
-                }
+                });
 
-                this.x = nextX;
-                this.y = nextY;
-                if (this.x > width) this.reset(0);
+                this.vx += ax;
+                this.vy += ay;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Speed-basierte Farbe (weiß bei hoher Geschwindigkeit/Druck)
+                let speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+                let intensity = Math.min(1, speed / (windSpeed * 1.5));
+                this.color = intensity > 0.8 ? "255, 255, 255" : "88, 166, 255";
+
+                if (this.x > width || this.y < 0 || this.y > height) this.reset(0);
+                if (this.x < -10) this.x = width;
             }
             draw() {
-                ctx.strokeStyle = 'rgba(0, 212, 255, 0.4)';
-                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = `rgba(${this.color}, 0.5)`;
+                ctx.lineWidth = 1.2;
                 ctx.beginPath();
-                ctx.moveTo(this.x - 10, this.y);
+                ctx.moveTo(this.x - this.vx, this.y - this.vy);
                 ctx.lineTo(this.x, this.y);
                 ctx.stroke();
             }
         }
 
         function animate() {
-            ctx.fillStyle = 'rgba(5, 5, 5, 0.3)';
+            // Dunklerer Hintergrund mit Trail-Effekt
+            ctx.fillStyle = 'rgba(2, 4, 10, 0.2)';
             ctx.fillRect(0, 0, width, height);
             
             obstacles.forEach(obs => {
-                ctx.fillStyle = obs.type === 'rect' ? '#ffaa00' : (obs.type === 'circle' ? '#00d4ff' : '#ff4444');
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.fillStyle = obs.type === 'rect' ? '#30363d' : (obs.type === 'circle' ? '#1f6feb' : '#f85149');
                 ctx.beginPath();
-                if (obs.type === 'rect') ctx.fillRect(obs.x - 35, obs.y - 35, 70, 70);
-                else ctx.arc(obs.x, obs.y, obs.type === 'draw' ? 5 : 38, 0, Math.PI * 2);
+                if (obs.type === 'rect') ctx.roundRect(obs.x - 35, obs.y - 35, 70, 70, 8);
+                else ctx.arc(obs.x, obs.y, obs.type === 'draw' ? 6 : 40, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.shadowBlur = 0;
             });
 
             particles.forEach(p => { p.update(); p.draw(); });
             requestAnimationFrame(animate);
         }
 
+        // Steuerung (Maus & Touch)
         function handleInput(e) {
             const rect = canvas.getBoundingClientRect();
             const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
             const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
 
             if (currentMode === 'draw') {
-                if (obstacles.length === 0 || Math.hypot(x - obstacles[obstacles.length-1].x, y - obstacles[obstacles.length-1].y) > 12) {
+                if (obstacles.length === 0 || Math.hypot(x - obstacles[obstacles.length-1].x, y - obstacles[obstacles.length-1].y) > 10) {
                     obstacles.push({ x, y, type: 'draw' });
                 }
             } else if (e.type === 'mousedown' || e.type === 'touchstart') {
@@ -140,12 +166,15 @@
         canvas.addEventListener('mousedown', (e) => { isDrawing = true; handleInput(e); });
         canvas.addEventListener('mousemove', (e) => { if (isDrawing) handleInput(e); });
         window.addEventListener('mouseup', () => isDrawing = false);
-
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; handleInput(e); }, {passive: false});
         canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (isDrawing) handleInput(e); }, {passive: false});
         canvas.addEventListener('touchend', () => isDrawing = false);
 
-        speedRange.addEventListener('input', (e) => { windSpeed = parseFloat(e.target.value); speedVal.innerText = windSpeed; });
+        speedRange.addEventListener('input', (e) => { 
+            windSpeed = parseFloat(e.target.value); 
+            speedVal.innerText = windSpeed; 
+        });
+
         function resetObstacles() { obstacles = []; }
         window.addEventListener('resize', init);
         init(); animate();

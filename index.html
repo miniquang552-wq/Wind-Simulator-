@@ -3,35 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Stabil & Schnell</title>
+    <title>Aero Pro - NASA Streamlines</title>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #050505; color: white; overflow: hidden; display: flex; flex-direction: column; }
-        #ui { position: absolute; top: 15px; left: 15px; background: rgba(10, 10, 15, 0.95); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 220px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #020202; color: white; overflow: hidden; display: flex; flex-direction: column; }
+        #ui { position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 20, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 220px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); }
         h3 { margin: 0 0 10px 0; color: #00d4ff; font-size: 15px; text-transform: uppercase; text-align: center; }
         label { display: block; font-size: 11px; color: #aaa; margin-bottom: 5px; }
         select, input[type="range"] { width: 100%; margin-bottom: 12px; background: #1a1a1a; color: white; border: 1px solid #444; padding: 6px; border-radius: 6px; }
-        button { width: 100%; background: #ff4444; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        button { width: 100%; background: #00d4ff; color: #000; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; }
         canvas { display: block; touch-action: none; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h3>Windtunnel (Stabil)</h3>
+        <h3>Windkanal 3.0</h3>
         <label>Windgeschwindigkeit</label>
         <input type="range" id="speedRange" min="2" max="15" step="0.5" value="6">
         
         <label>Modell auswählen</label>
         <select id="objectSelect" onchange="currentMode = this.value">
-            <option value="wing">✈️ Flügel</option>
+            <option value="wing">✈️ Flügel-Profil</option>
             <option value="supercar">🏎️ Sportwagen</option>
-            <option value="rocket">🚀 Rakete</option>
+            <option value="rocket">🚀 Raketenspitze</option>
             <option value="cat">🐈 Katze</option>
-            <option value="drop">💧 Tropfen</option>
+            <option value="drop">💧 Perfekter Tropfen</option>
             <option value="draw">✏️ Freihand</option>
         </select>
         
-        <button onclick="resetObstacles()">Alles löschen</button>
+        <button onclick="resetObstacles()">🧹 Windkanal leeren</button>
     </div>
 
     <canvas id="simCanvas"></canvas>
@@ -46,71 +46,82 @@
         let currentMode = 'wing';
         let isDrawing = false;
 
-        // Weniger Partikel = Keine Abstürze auf dem iPad!
-        const MAX_PARTICLES = 400; 
-
         function init() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             particles = [];
-            for (let i = 0; i < MAX_PARTICLES; i++) particles.push(new Particle());
+            
+            // Der NASA-Trick: Partikel in sauberen horizontalen Linien anordnen!
+            let spacing = 25; // Abstand zwischen den Rauchlinien
+            for (let y = 10; y < height; y += spacing) {
+                // Pro Linie setzen wir ein paar Partikel
+                for (let i = 0; i < width; i += 40) {
+                    particles.push(new Particle(i, y));
+                }
+            }
         }
 
         class Particle {
-            constructor() { this.reset(Math.random() * width); }
-            reset(startX) {
+            constructor(startX, startY) {
                 this.x = startX;
-                this.y = Math.random() * height;
+                this.y = startY;
+                this.baseY = startY; // Merkt sich, zu welcher Linie es gehört
                 this.vx = windSpeed;
                 this.vy = 0;
             }
             update() {
-                // Basis-Bewegung
-                this.vx += (windSpeed - this.vx) * 0.1;
-                this.vy *= 0.95; 
+                // Basis-Bewegung: Will immer nach rechts und auf seiner Linie bleiben
+                this.vx = windSpeed;
+                this.vy += (this.baseY - this.y) * 0.05; // Zieht den Rauch sanft zurück in die gerade Linie
+                this.vy *= 0.8; // Verhindert ewiges Wackeln
 
                 obstacles.forEach(obs => {
                     let dx = this.x - obs.x;
                     let dy = this.y - obs.y;
                     let r = obs.r || 40;
                     
-                    let distSq = dx*dx + dy*dy;
-                    if (distSq < r*r) {
-                        let dist = Math.sqrt(distSq);
-                        let nx = dx / dist;
-                        let ny = dy / dist;
+                    let dist = Math.hypot(dx, dy);
+                    
+                    // Wind biegt sich um das Objekt
+                    if (dist < r + 30) { 
+                        let force = (r + 30 - dist) / (r + 30);
+                        this.vx -= (dx / dist) * force * windSpeed * 0.8;
+                        this.vy += (dy / dist) * force * windSpeed * 1.5;
                         
-                        // Sanftes Abprallen (iPad freundlich)
-                        this.x += nx * (r - dist + 1);
-                        this.vx += nx * 2;
-                        this.vy += ny * 2;
+                        // Direkte Kollision verhindern
+                        if (dist < r) {
+                            this.x += (dx / dist) * (r - dist);
+                            this.y += (dy / dist) * (r - dist);
+                        }
                     }
                 });
 
                 this.x += this.vx;
                 this.y += this.vy;
 
-                // Zurücksetzen, wenn aus dem Bild geflogen
-                if (this.x > width || this.y < 0 || this.y > height) this.reset(-10);
+                // Wenn aus dem Bild geflogen, wieder links auf der Startlinie anfangen
+                if (this.x > width) {
+                    this.x = -10;
+                    this.y = this.baseY;
+                    this.vx = windSpeed;
+                    this.vy = 0;
+                }
             }
             draw() {
-                ctx.strokeStyle = "rgba(0, 212, 255, 0.6)";
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(this.x - this.vx, this.y - this.vy);
-                ctx.lineTo(this.x, this.y);
-                ctx.stroke();
+                // Zeichnet kleine, weiche Striche (ist super schnell für das iPad)
+                ctx.fillStyle = "rgba(150, 220, 255, 0.7)";
+                ctx.fillRect(this.x, this.y, 3, 3);
             }
         }
 
         function drawShape(ctx, obs) {
-            ctx.fillStyle = "#222";
-            ctx.strokeStyle = "#00d4ff";
+            ctx.fillStyle = "#1a1a1a";
+            ctx.strokeStyle = "#444";
             ctx.lineWidth = 2;
             ctx.beginPath();
             
             if (obs.type === 'wing') {
-                ctx.ellipse(obs.x, obs.y, 60, 15, 0, 0, Math.PI * 2);
+                ctx.ellipse(obs.x, obs.y, 60, 15, 0.1, 0, Math.PI * 2);
             } else if (obs.type === 'supercar') {
                 ctx.rect(obs.x - 50, obs.y - 10, 100, 20);
                 ctx.rect(obs.x - 20, obs.y - 25, 50, 15);
@@ -124,7 +135,7 @@
                 ctx.arc(obs.x + 25, obs.y - 15, 12, 0, Math.PI * 2); // Kopf
             } else if (obs.type === 'drop') {
                 ctx.arc(obs.x - 15, obs.y, 20, Math.PI/2, -Math.PI/2); 
-                ctx.lineTo(obs.x + 35, obs.y);
+                ctx.lineTo(obs.x + 40, obs.y);
                 ctx.closePath();
             } else if (obs.type === 'draw') {
                 ctx.arc(obs.x, obs.y, 8, 0, Math.PI * 2);
@@ -135,8 +146,8 @@
         }
 
         function animate() {
-            // Leicht flimmernder Schweif, der wenig Rechenleistung braucht
-            ctx.fillStyle = 'rgba(5, 5, 10, 0.3)';
+            // Motion Blur Effekt: Alte Partikel verblassen zu schönen Linien
+            ctx.fillStyle = 'rgba(2, 2, 2, 0.15)';
             ctx.fillRect(0, 0, width, height);
             
             obstacles.forEach(obs => drawShape(ctx, obs));
@@ -155,7 +166,7 @@
                     obstacles.push({ x, y, type: 'draw', r: 15 });
                 }
             } else if (e.type === 'mousedown' || e.type === 'touchstart') {
-                obstacles.push({ x, y, type: currentMode, r: (currentMode==='supercar'||currentMode==='wing'?50:35) });
+                obstacles.push({ x, y, type: currentMode, r: (currentMode==='supercar'||currentMode==='wing'?55:35) });
             }
         }
 

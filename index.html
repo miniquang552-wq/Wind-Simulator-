@@ -3,48 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Objekt Labor</title>
+    <title>AeroPro Realistic Sim</title>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #02040a; color: white; overflow: hidden; display: flex; flex-direction: column; }
-        #ui { position: absolute; top: 10px; left: 10px; background: rgba(13, 17, 23, 0.95); padding: 15px; border-radius: 12px; border: 1px solid #30363d; z-index: 10; width: 240px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
-        h3 { margin: 0 0 10px 0; color: #58a6ff; font-size: 16px; text-align: center; }
-        .controls { margin-bottom: 10px; }
-        label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 3px; }
-        select, input[type="range"] { width: 100%; margin-bottom: 10px; background: #21262d; color: white; border: 1px solid #30363d; padding: 5px; border-radius: 4px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-        button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-        button.active { background: #1f6feb; color: white; border-color: #58a6ff; }
-        #clearBtn { grid-column: span 2; background: #da3633; border: none; color: white; margin-top: 5px; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: #010204; color: #e6edf3; overflow: hidden; display: flex; flex-direction: column; }
+        #ui { position: absolute; top: 15px; left: 15px; background: rgba(13, 17, 23, 0.95); padding: 18px; border-radius: 12px; border: 1px solid #30363d; z-index: 10; width: 240px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); backdrop-filter: blur(5px); }
+        h3 { margin: 0 0 12px 0; color: #58a6ff; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; text-align: center; }
+        .controls { margin-bottom: 12px; }
+        label { display: block; font-size: 10px; color: #8b949e; margin-bottom: 4px; font-weight: bold; }
+        select, input[type="range"] { width: 100%; margin-bottom: 12px; background: #21262d; color: white; border: 1px solid #30363d; padding: 8px; border-radius: 6px; outline: none; }
+        button { width: 100%; background: #238636; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #2ea043; }
+        #clearBtn { background: #da3633; margin-top: 5px; }
         canvas { display: block; touch-action: none; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h3>AERO OBJECT LIB</h3>
+        <h3>Aero Pro v4</h3>
         <div class="controls">
-            <label>Windstärke: <span id="speedVal">6</span></label>
-            <input type="range" id="speedRange" min="0" max="15" step="0.5" value="6">
+            <label>Strömungsgeschwindigkeit</label>
+            <input type="range" id="speedRange" min="1" max="12" step="0.1" value="6">
             
-            <label>Objekt auswählen:</label>
-            <select id="objectSelect" onchange="setObject(this.value)">
+            <label>Realistisches Modell wählen</label>
+            <select id="objectSelect" onchange="currentMode = this.value">
+                <option value="wing">✈️ High-Lift Flügelprofil</option>
+                <option value="supercar">🏎️ Sportwagen (Profil)</option>
+                <option value="rocket">🚀 Falcon-9 Spitze</option>
+                <option value="cat">🐈 Katze (Seitenansicht)</option>
+                <option value="f1">🏎️ Formel 1 Heckflügel</option>
+                <option value="drop">💧 Tropfenform (Perfekt)</option>
                 <option value="draw">✏️ Freihand Zeichnen</option>
-                <option value="circle">⭕ Zylinder / Rad</option>
-                <option value="rect">🟦 Barriere / Wand</option>
-                <option value="wing">✈️ Flugzeugflügel</option>
-                <option value="car">🚗 Auto-Profil</option>
-                <option value="cat">🐱 Katze (Aerodynamisch)</option>
-                <option value="fish">🐟 Fisch-Form</option>
-                <option value="rocket">🚀 Raketenspitze</option>
-                <option value="tree">🌳 Baum</option>
-                <option value="diamond">💎 Diamant</option>
-                <option value="drop">💧 Tropfen (Ideal)</option>
             </select>
         </div>
-        
-        <div class="grid">
-            <button id="clearBtn" onclick="resetObstacles()">🗑️ Alles Löschen</button>
-        </div>
+        <button id="clearBtn" onclick="resetObstacles()">Simulation zurücksetzen</button>
     </div>
 
     <canvas id="simCanvas"></canvas>
@@ -53,20 +45,17 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
         const speedRange = document.getElementById('speedRange');
-        const speedVal = document.getElementById('speedVal');
 
         let width, height, particles = [], obstacles = [];
         let windSpeed = 6;
         let isDrawing = false;
-        let currentMode = 'draw';
-
-        function setObject(val) { currentMode = val; }
+        let currentMode = 'wing';
 
         function init() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             particles = [];
-            for (let i = 0; i < 800; i++) particles.push(new Particle());
+            for (let i = 0; i < 900; i++) particles.push(new Particle());
         }
 
         class Particle {
@@ -76,81 +65,102 @@
                 this.y = Math.random() * height;
                 this.vx = windSpeed;
                 this.vy = 0;
+                this.pressure = 0;
             }
             update() {
-                let ax = (windSpeed - this.vx) * 0.1;
-                let ay = -this.vy * 0.1;
+                let prevX = this.x;
+                let prevY = this.y;
+                this.pressure = 0;
 
                 obstacles.forEach(obs => {
                     let dx = this.x - obs.x;
                     let dy = this.y - obs.y;
-                    let r = 40; // Standardradius für Kollision
+                    let r = obs.r || 40;
 
-                    // Spezialgrößen für komplexe Formen
-                    if (obs.type === 'draw') r = 15;
-                    if (obs.type === 'car' || obs.type === 'wing') r = 50;
-
+                    // Verfeinerte Kollisionslogik für realistischere Umströmung
                     let distSq = dx*dx + dy*dy;
                     if (distSq < r*r) {
                         let dist = Math.sqrt(distSq);
                         let nx = dx / dist;
                         let ny = dy / dist;
+                        
+                        // Partikel aus dem Objekt schieben
                         this.x += nx * (r - dist);
+                        
+                        // Geschwindigkeit tangential zum Objekt biegen
                         let dot = this.vx * nx + this.vy * ny;
-                        this.vx -= 1.6 * dot * nx;
-                        this.vy -= 1.6 * dot * ny;
+                        this.vx -= 1.8 * dot * nx;
+                        this.vy -= 1.8 * dot * ny;
+                        
+                        // Druckberechnung für Farbe
+                        this.pressure = Math.abs(dot);
                     }
                 });
 
-                this.vx += ax; this.vy += ay;
-                this.x += this.vx; this.y += this.vy;
+                this.vx += (windSpeed - this.vx) * 0.1;
+                this.vy *= 0.98; 
+                this.x += this.vx;
+                this.y += this.vy;
+
                 if (this.x > width || this.y < 0 || this.y > height) this.reset(0);
             }
             draw() {
-                ctx.strokeStyle = "rgba(88, 166, 255, 0.5)";
-                ctx.lineWidth = 1.2;
+                // Farbe ändert sich von Blau (normal) zu Weiß (hoher Druck)
+                let alpha = 0.3 + (this.pressure * 0.2);
+                let color = this.pressure > 2 ? "#ffffff" : "#58a6ff";
+                ctx.strokeStyle = color;
+                ctx.globalAlpha = alpha;
+                ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.moveTo(this.x - this.vx, this.y - this.vy);
                 ctx.lineTo(this.x, this.y);
                 ctx.stroke();
+                ctx.globalAlpha = 1;
             }
         }
 
-        function drawShape(ctx, obs) {
-            ctx.fillStyle = "#30363d";
+        function drawRealShape(ctx, obs) {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "rgba(88, 166, 255, 0.2)";
+            ctx.fillStyle = "#161b22";
+            ctx.strokeStyle = "#30363d";
+            ctx.lineWidth = 2;
             ctx.beginPath();
-            if (obs.type === 'circle' || obs.type === 'draw') {
-                ctx.arc(obs.x, obs.y, obs.type === 'draw' ? 5 : 35, 0, Math.PI * 2);
-            } else if (obs.type === 'rect') {
-                ctx.rect(obs.x - 35, obs.y - 35, 70, 70);
-            } else if (obs.type === 'wing') {
-                ctx.ellipse(obs.x, obs.y, 60, 15, 0, 0, Math.PI * 2);
-            } else if (obs.type === 'car') {
-                ctx.roundRect(obs.x - 50, obs.y - 10, 100, 30, 10);
-                ctx.roundRect(obs.x - 30, obs.y - 30, 50, 25, 15);
-            } else if (obs.type === 'cat') {
-                ctx.ellipse(obs.x, obs.y, 30, 20, 0, 0, Math.PI * 2); // Körper
-                ctx.arc(obs.x + 25, obs.y - 10, 12, 0, Math.PI * 2); // Kopf
-                ctx.moveTo(obs.x + 20, obs.y - 18); ctx.lineTo(obs.x + 25, obs.y - 28); ctx.lineTo(obs.x + 30, obs.y - 18); // Ohren
+
+            if (obs.type === 'wing') {
+                ctx.ellipse(obs.x, obs.y, 70, 18, 0.1, 0, Math.PI * 2);
+            } else if (obs.type === 'supercar') {
+                ctx.roundRect(obs.x - 60, obs.y - 10, 120, 25, [15, 30, 5, 5]);
+                ctx.roundRect(obs.x - 30, obs.y - 25, 60, 20, 20);
             } else if (obs.type === 'rocket') {
-                ctx.moveTo(obs.x + 40, obs.y); ctx.lineTo(obs.x - 20, obs.y - 20); ctx.lineTo(obs.x - 20, obs.y + 20);
-            } else if (obs.type === 'fish') {
-                ctx.ellipse(obs.x, obs.y, 35, 15, 0, 0, Math.PI * 2);
-                ctx.moveTo(obs.x - 30, obs.y); ctx.lineTo(obs.x - 50, obs.y - 15); ctx.lineTo(obs.x - 50, obs.y + 15);
-            } else if (obs.type === 'tree') {
-                ctx.rect(obs.x - 5, obs.y, 10, 40); ctx.arc(obs.x, obs.y, 25, 0, Math.PI * 2);
-            } else if (obs.type === 'diamond') {
-                ctx.moveTo(obs.x, obs.y - 40); ctx.lineTo(obs.x + 30, obs.y); ctx.lineTo(obs.x, obs.y + 40); ctx.lineTo(obs.x - 30, obs.y);
+                ctx.moveTo(obs.x + 50, obs.y);
+                ctx.bezierCurveTo(obs.x + 20, obs.y - 30, obs.x - 40, obs.y - 30, obs.x - 40, obs.y - 30);
+                ctx.lineTo(obs.x - 40, obs.y + 30);
+                ctx.bezierCurveTo(obs.x - 40, obs.y + 30, obs.x + 20, obs.y + 30, obs.x + 50, obs.y);
+            } else if (obs.type === 'cat') {
+                ctx.ellipse(obs.x, obs.y, 40, 25, 0, 0, Math.PI * 2); // Body
+                ctx.arc(obs.x + 35, obs.y - 15, 15, 0, Math.PI * 2); // Head
+                ctx.moveTo(obs.x - 35, obs.y); ctx.quadraticCurveTo(obs.x - 60, obs.y - 40, obs.x - 50, obs.y + 10); // Tail
+            } else if (obs.type === 'f1') {
+                ctx.rect(obs.x - 40, obs.y - 30, 10, 60);
+                ctx.rect(obs.x - 40, obs.y - 10, 80, 10);
+                ctx.rect(obs.x + 30, obs.y - 30, 10, 60);
             } else if (obs.type === 'drop') {
-                ctx.arc(obs.x - 10, obs.y, 20, Math.PI/2, -Math.PI/2); ctx.lineTo(obs.x + 30, obs.y);
+                ctx.arc(obs.x - 20, obs.y, 25, Math.PI/2, -Math.PI/2);
+                ctx.lineTo(obs.x + 40, obs.y); ctx.closePath();
+            } else if (obs.type === 'draw') {
+                ctx.arc(obs.x, obs.y, 6, 0, Math.PI * 2);
             }
+
             ctx.fill();
+            ctx.stroke();
+            ctx.shadowBlur = 0;
         }
 
         function animate() {
-            ctx.fillStyle = 'rgba(2, 4, 10, 0.3)';
+            ctx.fillStyle = 'rgba(1, 2, 4, 0.3)';
             ctx.fillRect(0, 0, width, height);
-            obstacles.forEach(obs => drawShape(ctx, obs));
+            obstacles.forEach(obs => drawRealShape(ctx, obs));
             particles.forEach(p => { p.update(); p.draw(); });
             requestAnimationFrame(animate);
         }
@@ -160,11 +170,12 @@
             const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
             const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
             if (currentMode === 'draw') {
-                if (obstacles.length === 0 || Math.hypot(x - obstacles[obstacles.length-1].x, y - obstacles[obstacles.length-1].y) > 10) {
-                    obstacles.push({ x, y, type: 'draw' });
+                if (obstacles.length === 0 || Math.hypot(x - obstacles[obstacles.length-1].x, y - obstacles[obstacles.length-1].y) > 8) {
+                    obstacles.push({ x, y, type: 'draw', r: 15 });
                 }
             } else if (e.type === 'mousedown' || e.type === 'touchstart') {
-                obstacles.push({ x, y, type: currentMode });
+                let radius = currentMode === 'supercar' || currentMode === 'wing' ? 60 : 40;
+                obstacles.push({ x, y, type: currentMode, r: radius });
             }
         }
 
@@ -174,7 +185,7 @@
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; handleInput(e); }, {passive: false});
         canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (isDrawing) handleInput(e); }, {passive: false});
         canvas.addEventListener('touchend', () => isDrawing = false);
-        speedRange.addEventListener('input', (e) => { windSpeed = parseFloat(e.target.value); speedVal.innerText = windSpeed; });
+        speedRange.addEventListener('input', (e) => { windSpeed = parseFloat(e.target.value); });
         function resetObstacles() { obstacles = []; }
         window.addEventListener('resize', init);
         init(); animate();

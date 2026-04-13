@@ -2,62 +2,37 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aerodynamik Simulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Profi Aerodynamik Simulator</title>
     <style>
-        body {
-            margin: 0;
-            font-family: sans-serif;
-            background: #111;
-            color: white;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #444;
-            z-index: 10;
-        }
-
-        canvas {
-            display: block;
-            cursor: crosshair;
-        }
-
-        .controls {
-            margin-top: 10px;
-        }
-
-        label {
-            display: block;
-            font-size: 0.8rem;
-            margin-bottom: 5px;
-        }
-
-        input[type="range"] {
-            width: 100%;
-        }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: white; overflow: hidden; display: flex; flex-direction: column; }
+        #ui { position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.85); padding: 15px; border-radius: 10px; border: 1px solid #444; z-index: 10; width: 220px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        h3 { margin-top: 0; color: #00d4ff; font-size: 16px; }
+        .controls { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; margin-bottom: 5px; color: #aaa; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .shape-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        button { background: #333; color: white; border: 1px solid #555; padding: 8px; border-radius: 5px; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        button.active { background: #00d4ff; color: #000; border-color: #00d4ff; font-weight: bold; }
+        button:hover { border-color: #00d4ff; }
+        #clearBtn { grid-column: span 2; margin-top: 10px; background: #ff4444; border: none; }
+        canvas { display: block; touch-action: none; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h3>Windtunnel Simulator</h3>
-        <p>Klicke/Ziehe, um ein Objekt zu platzieren</p>
+        <h3>Windtunnel 2.0</h3>
         <div class="controls">
             <label>Windgeschwindigkeit: <span id="speedVal">5</span></label>
-            <input type="range" id="speedRange" min="0" max="15" step="0.1" value="5">
+            <input type="range" id="speedRange" min="0" max="20" step="0.5" value="5">
         </div>
-        <div class="controls">
-            <button onclick="resetObstacles()">Objekte löschen</button>
+        <label>Objekt-Form wählen:</label>
+        <div class="shape-selector">
+            <button id="btnCircle" class="active" onclick="setShape('circle')">Kreis</button>
+            <button id="btnSquare" onclick="setShape('square')">Block</button>
+            <button id="btnWing" onclick="setShape('wing')">Flügel</button>
+            <button id="clearBtn" onclick="resetObstacles()">Alles löschen</button>
         </div>
     </div>
 
@@ -69,93 +44,93 @@
         const speedRange = document.getElementById('speedRange');
         const speedVal = document.getElementById('speedVal');
 
-        let width, height;
-        let particles = [];
-        let obstacles = [];
+        let width, height, particles = [], obstacles = [];
         let windSpeed = 5;
+        let currentShape = 'circle';
 
-        // Initialisierung
+        function setShape(shape) {
+            currentShape = shape;
+            document.querySelectorAll('.shape-selector button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn' + shape.charAt(0).toUpperCase() + shape.slice(1)).classList.add('active');
+        }
+
         function init() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             particles = [];
-            // Start-Partikel erzeugen
-            for (let i = 0; i < 500; i++) {
-                particles.push(new Particle());
-            }
+            for (let i = 0; i < 600; i++) particles.push(new Particle());
         }
 
         class Particle {
-            constructor() {
-                this.reset();
-            }
-
-            reset() {
-                this.x = Math.random() * width;
+            constructor() { this.reset(Math.random() * width); }
+            reset(startX) {
+                this.x = startX;
                 this.y = Math.random() * height;
-                this.history = [];
+                this.vx = windSpeed;
             }
-
             update() {
                 let nextX = this.x + windSpeed;
                 let nextY = this.y;
 
-                // Kollision mit Objekten (vereinfachte Aerodynamik)
                 obstacles.forEach(obs => {
                     let dx = nextX - obs.x;
                     let dy = nextY - obs.y;
-                    let distance = Math.sqrt(dx * dx + dy * dy);
 
-                    if (distance < obs.radius + 5) {
-                        // Partikel wird um das Objekt herumgeleitet
-                        let angle = Math.atan2(dy, dx);
-                        nextX = obs.x + Math.cos(angle) * (obs.radius + 10);
-                        nextY = obs.y + Math.sin(angle) * (obs.radius + 10);
+                    if (obs.type === 'circle') {
+                        let dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < obs.r) {
+                            let angle = Math.atan2(dy, dx);
+                            nextX = obs.x + Math.cos(angle) * (obs.r + 2);
+                            nextY = obs.y + Math.sin(angle) * (obs.r + 2);
+                        }
+                    } else if (obs.type === 'square') {
+                        if (Math.abs(dx) < 40 && Math.abs(dy) < 40) {
+                            if (nextX < obs.x) nextX = obs.x - 42;
+                            else nextY = obs.y + (dy > 0 ? 42 : -42);
+                        }
+                    } else if (obs.type === 'wing') {
+                        // Vereinfachte Tragflächen-Physik (Trännenform)
+                        let dist = Math.sqrt((dx*dx*0.5) + (dy*dy*2.5));
+                        if (dist < 30) {
+                            nextX += 2;
+                            nextY += dy * 0.15;
+                        }
                     }
                 });
 
                 this.x = nextX;
                 this.y = nextY;
-
-                // Wenn Partikel den Bildschirm verlässt, links neu starten
-                if (this.x > width) {
-                    this.x = 0;
-                    this.y = Math.random() * height;
-                }
+                if (this.x > width) this.reset(0);
             }
-
             draw() {
-                ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)';
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(0, 212, 255, 0.4)';
+                ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                ctx.moveTo(this.x - windSpeed * 2, this.y);
+                ctx.moveTo(this.x - 10, this.y);
                 ctx.lineTo(this.x, this.y);
                 ctx.stroke();
             }
         }
 
         function animate() {
-            ctx.fillStyle = 'rgba(17, 17, 17, 0.2)'; // Schweif-Effekt
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.3)';
             ctx.fillRect(0, 0, width, height);
-
             obstacles.forEach(obs => {
-                ctx.fillStyle = '#ff4444';
+                ctx.fillStyle = obs.type === 'wing' ? '#00ffaa' : (obs.type === 'square' ? '#ffaa00' : '#ff4444');
                 ctx.beginPath();
-                ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+                if (obs.type === 'circle') ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI * 2);
+                else if (obs.type === 'square') ctx.rect(obs.x - 35, obs.y - 35, 70, 70);
+                else if (obs.type === 'wing') {
+                    ctx.ellipse(obs.x, obs.y, 60, 20, 0, 0, Math.PI * 2);
+                }
                 ctx.fill();
             });
-
-            particles.forEach(p => {
-                p.update();
-                p.draw();
-            });
-
+            particles.forEach(p => { p.update(); p.draw(); });
             requestAnimationFrame(animate);
         }
 
-        // Interaktion
-        canvas.addEventListener('mousedown', (e) => {
-            obstacles.push({ x: e.clientX, y: e.clientY, radius: 30 });
+        canvas.addEventListener('pointerdown', (e) => {
+            obstacles.push({ x: e.clientX, y: e.clientY, r: 35, type: currentShape });
         });
 
         speedRange.addEventListener('input', (e) => {
@@ -163,14 +138,9 @@
             speedVal.innerText = windSpeed;
         });
 
-        function resetObstacles() {
-            obstacles = [];
-        }
-
+        function resetObstacles() { obstacles = []; }
         window.addEventListener('resize', init);
-
-        init();
-        animate();
+        init(); animate();
     </script>
 </body>
 </html>

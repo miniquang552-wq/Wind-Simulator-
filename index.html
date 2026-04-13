@@ -3,36 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Advanced Aerodynamics Lab</title>
+    <title>Aero Pro - Objekt Labor</title>
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #02040a; color: white; overflow: hidden; display: flex; flex-direction: column; }
-        #ui { position: absolute; top: 10px; left: 10px; background: rgba(13, 17, 23, 0.95); padding: 15px; border-radius: 12px; border: 1px solid #30363d; z-index: 10; width: 220px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
-        h3 { margin: 0 0 10px 0; color: #58a6ff; font-size: 16px; text-align: center; letter-spacing: 1px; }
+        #ui { position: absolute; top: 10px; left: 10px; background: rgba(13, 17, 23, 0.95); padding: 15px; border-radius: 12px; border: 1px solid #30363d; z-index: 10; width: 240px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
+        h3 { margin: 0 0 10px 0; color: #58a6ff; font-size: 16px; text-align: center; }
         .controls { margin-bottom: 10px; }
         label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 3px; }
-        input[type="range"] { width: 100%; margin-bottom: 10px; accent-color: #58a6ff; }
+        select, input[type="range"] { width: 100%; margin-bottom: 10px; background: #21262d; color: white; border: 1px solid #30363d; padding: 5px; border-radius: 4px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-        button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: 0.2s; }
-        button.active { background: #1f6feb; color: white; border-color: #58a6ff; font-weight: bold; }
-        #clearBtn { grid-column: span 2; background: #da3633; border: none; margin-top: 5px; color: white; }
+        button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        button.active { background: #1f6feb; color: white; border-color: #58a6ff; }
+        #clearBtn { grid-column: span 2; background: #da3633; border: none; color: white; margin-top: 5px; }
         canvas { display: block; touch-action: none; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h3>AERO PRO v3</h3>
+        <h3>AERO OBJECT LIB</h3>
         <div class="controls">
             <label>Windstärke: <span id="speedVal">6</span></label>
             <input type="range" id="speedRange" min="0" max="15" step="0.5" value="6">
+            
+            <label>Objekt auswählen:</label>
+            <select id="objectSelect" onchange="setObject(this.value)">
+                <option value="draw">✏️ Freihand Zeichnen</option>
+                <option value="circle">⭕ Zylinder / Rad</option>
+                <option value="rect">🟦 Barriere / Wand</option>
+                <option value="wing">✈️ Flugzeugflügel</option>
+                <option value="car">🚗 Auto-Profil</option>
+                <option value="cat">🐱 Katze (Aerodynamisch)</option>
+                <option value="fish">🐟 Fisch-Form</option>
+                <option value="rocket">🚀 Raketenspitze</option>
+                <option value="tree">🌳 Baum</option>
+                <option value="diamond">💎 Diamant</option>
+                <option value="drop">💧 Tropfen (Ideal)</option>
+            </select>
         </div>
         
-        <label>Werkzeug:</label>
         <div class="grid">
-            <button id="drawMode" class="active" onclick="setMode('draw')">✏️ Freihand</button>
-            <button id="circleMode" onclick="setMode('circle')">⭕ Zylinder</button>
-            <button id="rectMode" onclick="setMode('rect')">🟦 Barriere</button>
-            <button id="clearBtn" onclick="resetObstacles()">🗑️ Reset</button>
+            <button id="clearBtn" onclick="resetObstacles()">🗑️ Alles Löschen</button>
         </div>
     </div>
 
@@ -49,17 +60,12 @@
         let isDrawing = false;
         let currentMode = 'draw';
 
-        function setMode(mode) {
-            currentMode = mode;
-            document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-            document.getElementById(mode + 'Mode').classList.add('active');
-        }
+        function setObject(val) { currentMode = val; }
 
         function init() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             particles = [];
-            // Mehr Partikel für bessere Sichtbarkeit der Strömung
             for (let i = 0; i < 800; i++) particles.push(new Particle());
         }
 
@@ -69,57 +75,39 @@
                 this.x = startX;
                 this.y = Math.random() * height;
                 this.vx = windSpeed;
-                this.vy = (Math.random() - 0.5) * 0.5; // Leichte natürliche Schwankung
-                this.color = "88, 166, 255";
+                this.vy = 0;
             }
             update() {
-                // Basis-Windkraft
                 let ax = (windSpeed - this.vx) * 0.1;
                 let ay = -this.vy * 0.1;
 
                 obstacles.forEach(obs => {
                     let dx = this.x - obs.x;
                     let dy = this.y - obs.y;
+                    let r = 40; // Standardradius für Kollision
+
+                    // Spezialgrößen für komplexe Formen
+                    if (obs.type === 'draw') r = 15;
+                    if (obs.type === 'car' || obs.type === 'wing') r = 50;
+
                     let distSq = dx*dx + dy*dy;
-                    let r = obs.type === 'draw' ? 18 : 42;
-                    
                     if (distSq < r*r) {
                         let dist = Math.sqrt(distSq);
-                        let nx = dx / dist; // Normalenvektor
+                        let nx = dx / dist;
                         let ny = dy / dist;
-                        
-                        // Abstoßungskraft (Vermeidung des Eindringens)
-                        let push = (r - dist) * 0.5;
-                        this.x += nx * push;
-                        this.y += ny * push;
-
-                        // Strömung um das Objekt leiten (Tangentialkraft)
+                        this.x += nx * (r - dist);
                         let dot = this.vx * nx + this.vy * ny;
-                        this.vx -= 1.5 * dot * nx;
-                        this.vy -= 1.5 * dot * ny;
-
-                        // Wirbel-Simulation hinter dem Objekt
-                        if (dx > 0) { // Wir befinden uns im "Windschatten"
-                            this.vy += Math.sin(this.x * 0.1) * 0.5;
-                        }
+                        this.vx -= 1.6 * dot * nx;
+                        this.vy -= 1.6 * dot * ny;
                     }
                 });
 
-                this.vx += ax;
-                this.vy += ay;
-                this.x += this.vx;
-                this.y += this.vy;
-
-                // Speed-basierte Farbe (weiß bei hoher Geschwindigkeit/Druck)
-                let speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
-                let intensity = Math.min(1, speed / (windSpeed * 1.5));
-                this.color = intensity > 0.8 ? "255, 255, 255" : "88, 166, 255";
-
+                this.vx += ax; this.vy += ay;
+                this.x += this.vx; this.y += this.vy;
                 if (this.x > width || this.y < 0 || this.y > height) this.reset(0);
-                if (this.x < -10) this.x = width;
             }
             draw() {
-                ctx.strokeStyle = `rgba(${this.color}, 0.5)`;
+                ctx.strokeStyle = "rgba(88, 166, 255, 0.5)";
                 ctx.lineWidth = 1.2;
                 ctx.beginPath();
                 ctx.moveTo(this.x - this.vx, this.y - this.vy);
@@ -128,32 +116,49 @@
             }
         }
 
-        function animate() {
-            // Dunklerer Hintergrund mit Trail-Effekt
-            ctx.fillStyle = 'rgba(2, 4, 10, 0.2)';
-            ctx.fillRect(0, 0, width, height);
-            
-            obstacles.forEach(obs => {
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = 'rgba(0,0,0,0.5)';
-                ctx.fillStyle = obs.type === 'rect' ? '#30363d' : (obs.type === 'circle' ? '#1f6feb' : '#f85149');
-                ctx.beginPath();
-                if (obs.type === 'rect') ctx.roundRect(obs.x - 35, obs.y - 35, 70, 70, 8);
-                else ctx.arc(obs.x, obs.y, obs.type === 'draw' ? 6 : 40, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.shadowBlur = 0;
-            });
+        function drawShape(ctx, obs) {
+            ctx.fillStyle = "#30363d";
+            ctx.beginPath();
+            if (obs.type === 'circle' || obs.type === 'draw') {
+                ctx.arc(obs.x, obs.y, obs.type === 'draw' ? 5 : 35, 0, Math.PI * 2);
+            } else if (obs.type === 'rect') {
+                ctx.rect(obs.x - 35, obs.y - 35, 70, 70);
+            } else if (obs.type === 'wing') {
+                ctx.ellipse(obs.x, obs.y, 60, 15, 0, 0, Math.PI * 2);
+            } else if (obs.type === 'car') {
+                ctx.roundRect(obs.x - 50, obs.y - 10, 100, 30, 10);
+                ctx.roundRect(obs.x - 30, obs.y - 30, 50, 25, 15);
+            } else if (obs.type === 'cat') {
+                ctx.ellipse(obs.x, obs.y, 30, 20, 0, 0, Math.PI * 2); // Körper
+                ctx.arc(obs.x + 25, obs.y - 10, 12, 0, Math.PI * 2); // Kopf
+                ctx.moveTo(obs.x + 20, obs.y - 18); ctx.lineTo(obs.x + 25, obs.y - 28); ctx.lineTo(obs.x + 30, obs.y - 18); // Ohren
+            } else if (obs.type === 'rocket') {
+                ctx.moveTo(obs.x + 40, obs.y); ctx.lineTo(obs.x - 20, obs.y - 20); ctx.lineTo(obs.x - 20, obs.y + 20);
+            } else if (obs.type === 'fish') {
+                ctx.ellipse(obs.x, obs.y, 35, 15, 0, 0, Math.PI * 2);
+                ctx.moveTo(obs.x - 30, obs.y); ctx.lineTo(obs.x - 50, obs.y - 15); ctx.lineTo(obs.x - 50, obs.y + 15);
+            } else if (obs.type === 'tree') {
+                ctx.rect(obs.x - 5, obs.y, 10, 40); ctx.arc(obs.x, obs.y, 25, 0, Math.PI * 2);
+            } else if (obs.type === 'diamond') {
+                ctx.moveTo(obs.x, obs.y - 40); ctx.lineTo(obs.x + 30, obs.y); ctx.lineTo(obs.x, obs.y + 40); ctx.lineTo(obs.x - 30, obs.y);
+            } else if (obs.type === 'drop') {
+                ctx.arc(obs.x - 10, obs.y, 20, Math.PI/2, -Math.PI/2); ctx.lineTo(obs.x + 30, obs.y);
+            }
+            ctx.fill();
+        }
 
+        function animate() {
+            ctx.fillStyle = 'rgba(2, 4, 10, 0.3)';
+            ctx.fillRect(0, 0, width, height);
+            obstacles.forEach(obs => drawShape(ctx, obs));
             particles.forEach(p => { p.update(); p.draw(); });
             requestAnimationFrame(animate);
         }
 
-        // Steuerung (Maus & Touch)
         function handleInput(e) {
             const rect = canvas.getBoundingClientRect();
             const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
             const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
-
             if (currentMode === 'draw') {
                 if (obstacles.length === 0 || Math.hypot(x - obstacles[obstacles.length-1].x, y - obstacles[obstacles.length-1].y) > 10) {
                     obstacles.push({ x, y, type: 'draw' });
@@ -169,12 +174,7 @@
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; handleInput(e); }, {passive: false});
         canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (isDrawing) handleInput(e); }, {passive: false});
         canvas.addEventListener('touchend', () => isDrawing = false);
-
-        speedRange.addEventListener('input', (e) => { 
-            windSpeed = parseFloat(e.target.value); 
-            speedVal.innerText = windSpeed; 
-        });
-
+        speedRange.addEventListener('input', (e) => { windSpeed = parseFloat(e.target.value); speedVal.innerText = windSpeed; });
         function resetObstacles() { obstacles = []; }
         window.addEventListener('resize', init);
         init(); animate();

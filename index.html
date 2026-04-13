@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - NASA Streamlines</title>
+    <title>Aero Pro - Blueprint Edition</title>
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #020202; color: white; overflow: hidden; display: flex; flex-direction: column; }
         #ui { position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 20, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 220px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); }
-        h3 { margin: 0 0 10px 0; color: #00d4ff; font-size: 15px; text-transform: uppercase; text-align: center; }
+        h3 { margin: 0 0 10px 0; color: #00d4ff; font-size: 15px; text-transform: uppercase; text-align: center; letter-spacing: 1px; }
         label { display: block; font-size: 11px; color: #aaa; margin-bottom: 5px; }
         select, input[type="range"] { width: 100%; margin-bottom: 12px; background: #1a1a1a; color: white; border: 1px solid #444; padding: 6px; border-radius: 6px; }
         button { width: 100%; background: #00d4ff; color: #000; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; }
@@ -17,17 +17,17 @@
 <body>
 
     <div id="ui">
-        <h3>Windkanal 3.0</h3>
+        <h3>Pro-Windkanal</h3>
         <label>Windgeschwindigkeit</label>
-        <input type="range" id="speedRange" min="2" max="15" step="0.5" value="6">
+        <input type="range" id="speedRange" min="2" max="15" step="0.5" value="7">
         
-        <label>Modell auswählen</label>
+        <label>Präzisions-Modelle</label>
         <select id="objectSelect" onchange="currentMode = this.value">
-            <option value="wing">✈️ Flügel-Profil</option>
-            <option value="supercar">🏎️ Sportwagen</option>
-            <option value="rocket">🚀 Raketenspitze</option>
-            <option value="cat">🐈 Katze</option>
-            <option value="drop">💧 Perfekter Tropfen</option>
+            <option value="wing">✈️ NACA-Flügelprofil</option>
+            <option value="supercar">🏎️ GT-Sportwagen</option>
+            <option value="rocket">🚀 Falcon-Spitze</option>
+            <option value="drop">💧 Idealer Tropfen</option>
+            <option value="cat">🐈 Katze (Profil)</option>
             <option value="draw">✏️ Freihand</option>
         </select>
         
@@ -42,7 +42,7 @@
         const speedRange = document.getElementById('speedRange');
 
         let width, height, particles = [], obstacles = [];
-        let windSpeed = 6;
+        let windSpeed = 7;
         let currentMode = 'wing';
         let isDrawing = false;
 
@@ -51,11 +51,9 @@
             height = canvas.height = window.innerHeight;
             particles = [];
             
-            // Der NASA-Trick: Partikel in sauberen horizontalen Linien anordnen!
-            let spacing = 25; // Abstand zwischen den Rauchlinien
+            let spacing = 20; 
             for (let y = 10; y < height; y += spacing) {
-                // Pro Linie setzen wir ein paar Partikel
-                for (let i = 0; i < width; i += 40) {
+                for (let i = 0; i < width; i += 35) {
                     particles.push(new Particle(i, y));
                 }
             }
@@ -65,30 +63,35 @@
             constructor(startX, startY) {
                 this.x = startX;
                 this.y = startY;
-                this.baseY = startY; // Merkt sich, zu welcher Linie es gehört
+                this.baseY = startY; 
                 this.vx = windSpeed;
                 this.vy = 0;
             }
             update() {
-                // Basis-Bewegung: Will immer nach rechts und auf seiner Linie bleiben
                 this.vx = windSpeed;
-                this.vy += (this.baseY - this.y) * 0.05; // Zieht den Rauch sanft zurück in die gerade Linie
-                this.vy *= 0.8; // Verhindert ewiges Wackeln
+                this.vy += (this.baseY - this.y) * 0.05; 
+                this.vy *= 0.82; 
 
                 obstacles.forEach(obs => {
                     let dx = this.x - obs.x;
                     let dy = this.y - obs.y;
                     let r = obs.r || 40;
                     
+                    // Modellspezifische Anpassung des Strömungsfelds
+                    if (obs.type === 'supercar') {
+                        dy = this.y - (obs.y + 10); // Wind gleitet besser übers Dach
+                    } else if (obs.type === 'wing') {
+                        if (dy < 0) dy *= 1.2; // Sog-Effekt oben (Auftrieb)
+                    }
+
                     let dist = Math.hypot(dx, dy);
                     
-                    // Wind biegt sich um das Objekt
-                    if (dist < r + 30) { 
-                        let force = (r + 30 - dist) / (r + 30);
-                        this.vx -= (dx / dist) * force * windSpeed * 0.8;
-                        this.vy += (dy / dist) * force * windSpeed * 1.5;
+                    if (dist < r + 35) { 
+                        let force = (r + 35 - dist) / (r + 35);
+                        this.vx -= (dx / dist) * force * windSpeed * 0.85;
+                        this.vy += (dy / dist) * force * windSpeed * 1.4;
                         
-                        // Direkte Kollision verhindern
+                        // Kollisionsabfrage
                         if (dist < r) {
                             this.x += (dx / dist) * (r - dist);
                             this.y += (dy / dist) * (r - dist);
@@ -99,7 +102,6 @@
                 this.x += this.vx;
                 this.y += this.vy;
 
-                // Wenn aus dem Bild geflogen, wieder links auf der Startlinie anfangen
                 if (this.x > width) {
                     this.x = -10;
                     this.y = this.baseY;
@@ -108,36 +110,56 @@
                 }
             }
             draw() {
-                // Zeichnet kleine, weiche Striche (ist super schnell für das iPad)
-                ctx.fillStyle = "rgba(150, 220, 255, 0.7)";
-                ctx.fillRect(this.x, this.y, 3, 3);
+                ctx.fillStyle = "rgba(180, 230, 255, 0.8)";
+                ctx.fillRect(this.x, this.y, 4, 1.5); // Längliche Linien für mehr Speed-Gefühl
             }
         }
 
+        // --- HIER SIND DIE NEUEN REALISTISCHEN MODELLE ---
         function drawShape(ctx, obs) {
-            ctx.fillStyle = "#1a1a1a";
-            ctx.strokeStyle = "#444";
+            ctx.fillStyle = "#111"; // Dunkelgraues Füllmaterial
+            ctx.strokeStyle = "#00d4ff"; // Blaue Neon-Kontur wie im Blueprint
             ctx.lineWidth = 2;
             ctx.beginPath();
             
-            if (obs.type === 'wing') {
-                ctx.ellipse(obs.x, obs.y, 60, 15, 0.1, 0, Math.PI * 2);
-            } else if (obs.type === 'supercar') {
-                ctx.rect(obs.x - 50, obs.y - 10, 100, 20);
-                ctx.rect(obs.x - 20, obs.y - 25, 50, 15);
-            } else if (obs.type === 'rocket') {
-                ctx.moveTo(obs.x + 40, obs.y);
-                ctx.lineTo(obs.x - 30, obs.y - 20);
-                ctx.lineTo(obs.x - 30, obs.y + 20);
-                ctx.closePath();
-            } else if (obs.type === 'cat') {
-                ctx.arc(obs.x, obs.y, 25, 0, Math.PI * 2); // Körper
-                ctx.arc(obs.x + 25, obs.y - 15, 12, 0, Math.PI * 2); // Kopf
-            } else if (obs.type === 'drop') {
-                ctx.arc(obs.x - 15, obs.y, 20, Math.PI/2, -Math.PI/2); 
-                ctx.lineTo(obs.x + 40, obs.y);
-                ctx.closePath();
-            } else if (obs.type === 'draw') {
+            if (obs.type === 'drop') {
+                // Perfekter aerodynamischer Tropfen
+                ctx.arc(obs.x - 25, obs.y, 25, Math.PI / 2, -Math.PI / 2); // Runde Front
+                ctx.bezierCurveTo(obs.x, obs.y - 25, obs.x + 20, obs.y - 5, obs.x + 60, obs.y); // Obere Kurve zur Spitze
+                ctx.bezierCurveTo(obs.x + 20, obs.y + 5, obs.x, obs.y + 25, obs.x - 25, obs.y + 25); // Untere Kurve
+            } 
+            else if (obs.type === 'wing') {
+                // Asymmetrisches NACA Profil (oben runder als unten)
+                ctx.moveTo(obs.x - 45, obs.y + 5); 
+                ctx.bezierCurveTo(obs.x - 45, obs.y - 25, obs.x + 10, obs.y - 20, obs.x + 55, obs.y + 5); // Oben (viel Auftrieb)
+                ctx.bezierCurveTo(obs.x + 10, obs.y + 10, obs.x - 40, obs.y + 15, obs.x - 45, obs.y + 5); // Unten (flacher)
+            } 
+            else if (obs.type === 'supercar') {
+                // Realistische Sportwagen-Silhouette
+                ctx.moveTo(obs.x - 55, obs.y + 20); // Frontschürze unten
+                ctx.lineTo(obs.x - 55, obs.y + 10); // Frontschürze oben
+                ctx.quadraticCurveTo(obs.x - 30, obs.y - 5, obs.x - 10, obs.y - 10); // Motorhaube
+                ctx.quadraticCurveTo(obs.x + 5,  obs.y - 30, obs.x + 25, obs.y - 25); // Windschutzscheibe & Dach
+                ctx.lineTo(obs.x + 55, obs.y - 5); // Heckscheibe flach abfallend
+                ctx.lineTo(obs.x + 55, obs.y + 20); // Heck unten
+                // Bodenlinie leicht eingezogen (Ground Effect)
+                ctx.lineTo(obs.x - 55, obs.y + 20);
+            } 
+            else if (obs.type === 'rocket') {
+                // Ogive Nasenkonus (klassische Raketenform)
+                ctx.moveTo(obs.x + 45, obs.y);
+                ctx.quadraticCurveTo(obs.x, obs.y - 22, obs.x - 35, obs.y - 22);
+                ctx.lineTo(obs.x - 35, obs.y + 22);
+                ctx.quadraticCurveTo(obs.x, obs.y + 22, obs.x + 45, obs.y);
+            } 
+            else if (obs.type === 'cat') {
+                // Abstrakte, aber organischere Katze
+                ctx.ellipse(obs.x - 5, obs.y + 5, 30, 20, 0, 0, Math.PI * 2); // Körper
+                ctx.arc(obs.x + 25, obs.y - 10, 14, 0, Math.PI * 2); // Kopf
+                ctx.moveTo(obs.x + 18, obs.y - 20); ctx.lineTo(obs.x + 22, obs.y - 35); ctx.lineTo(obs.x + 28, obs.y - 22); // Ohr links
+                ctx.moveTo(obs.x + 28, obs.y - 22); ctx.lineTo(obs.x + 34, obs.y - 35); ctx.lineTo(obs.x + 36, obs.y - 18); // Ohr rechts
+            } 
+            else if (obs.type === 'draw') {
                 ctx.arc(obs.x, obs.y, 8, 0, Math.PI * 2);
             }
             
@@ -146,13 +168,19 @@
         }
 
         function animate() {
-            // Motion Blur Effekt: Alte Partikel verblassen zu schönen Linien
-            ctx.fillStyle = 'rgba(2, 2, 2, 0.15)';
+            ctx.fillStyle = 'rgba(2, 2, 2, 0.18)'; // Motion Blur
             ctx.fillRect(0, 0, width, height);
             
-            obstacles.forEach(obs => drawShape(ctx, obs));
+            // Bodenlinie beim Auto einzeichnen, damit man den Unterboden-Effekt sieht
+            obstacles.forEach(obs => {
+                if (obs.type === 'supercar') {
+                    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+                    ctx.beginPath(); ctx.moveTo(0, obs.y + 25); ctx.lineTo(width, obs.y + 25); ctx.stroke();
+                }
+                drawShape(ctx, obs);
+            });
+
             particles.forEach(p => { p.update(); p.draw(); });
-            
             requestAnimationFrame(animate);
         }
 
@@ -166,7 +194,7 @@
                     obstacles.push({ x, y, type: 'draw', r: 15 });
                 }
             } else if (e.type === 'mousedown' || e.type === 'touchstart') {
-                obstacles.push({ x, y, type: currentMode, r: (currentMode==='supercar'||currentMode==='wing'?55:35) });
+                obstacles.push({ x, y, type: currentMode, r: (currentMode==='supercar'||currentMode==='wing'?55:40) });
             }
         }
 

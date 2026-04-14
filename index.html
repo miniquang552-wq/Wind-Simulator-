@@ -3,35 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Blueprint & Draw Edition</title>
+    <title>Aero Pro - Advanced Drawing</title>
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #020202; color: white; overflow: hidden; display: flex; flex-direction: column; }
-        #ui { position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 20, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 220px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); }
-        h3 { margin: 0 0 10px 0; color: #00d4ff; font-size: 15px; text-transform: uppercase; text-align: center; letter-spacing: 1px; }
-        label { display: block; font-size: 11px; color: #aaa; margin-bottom: 5px; }
-        select, input[type="range"] { width: 100%; margin-bottom: 12px; background: #1a1a1a; color: white; border: 1px solid #444; padding: 6px; border-radius: 6px; }
-        button { width: 100%; background: #00d4ff; color: #000; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        #ui { position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 20, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 220px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); backdrop-filter: blur(10px); }
+        h3 { margin: 0 0 10px 0; color: #00d4ff; font-size: 14px; text-transform: uppercase; text-align: center; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .section { margin-bottom: 15px; padding: 5px 0; }
+        label { display: block; font-size: 10px; color: #888; margin-bottom: 4px; text-transform: uppercase; }
+        select, input[type="range"] { width: 100%; margin-bottom: 8px; background: #1a1a1a; color: white; border: 1px solid #444; padding: 6px; border-radius: 6px; font-size: 12px; }
+        .btn-group { display: flex; gap: 5px; }
+        button { flex: 1; background: #1a1a1a; color: white; border: 1px solid #444; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: 0.2s; }
+        button.active { background: #00d4ff; color: #000; border-color: #00d4ff; font-weight: bold; }
+        #resetBtn { background: #ff4444; color: white; border: none; margin-top: 10px; width: 100%; }
         canvas { display: block; touch-action: none; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h3>Pro-Windkanal</h3>
-        <label>Windgeschwindigkeit</label>
-        <input type="range" id="speedRange" min="2" max="15" step="0.5" value="7">
+        <h3>Windkanal Pro</h3>
         
-        <label>Werkzeug / Modell</label>
-        <select id="objectSelect" onchange="currentMode = this.value">
-            <option value="draw">✏️ Stift (Zeichnen)</option>
-            <option value="wing">✈️ NACA-Flügelprofil</option>
-            <option value="supercar">🏎️ GT-Sportwagen</option>
-            <option value="rocket">🚀 Falcon-Spitze</option>
-            <option value="drop">💧 Idealer Tropfen</option>
-            <option value="cat">🐈 Katze (Profil)</option>
-        </select>
+        <div class="section">
+            <label>Modell / Werkzeug</label>
+            <select id="objectSelect" onchange="currentMode = this.value">
+                <option value="draw">✏️ Freihand Stift</option>
+                <option value="wing">✈️ NACA Flügel</option>
+                <option value="supercar">🏎️ GT Auto</option>
+                <option value="drop">💧 Tropfen</option>
+            </select>
+        </div>
+
+        <div id="penControls" class="section">
+            <label>Stift-Stärke</label>
+            <input type="range" id="penSize" min="5" max="30" value="12">
+            
+            <label>Linien-Typ</label>
+            <div class="btn-group">
+                <button id="solidBtn" class="active" onclick="setLineStyle('solid')">Voll</button>
+                <button id="dashBtn" onclick="setLineStyle('dashed')">Gitter</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <label>Windgeschwindigkeit</label>
+            <input type="range" id="speedRange" min="2" max="15" step="0.5" value="7">
+        </div>
         
-        <button onclick="resetObstacles()">🧹 Windkanal leeren</button>
+        <button id="resetBtn" onclick="resetObstacles()">Kanal leeren</button>
     </div>
 
     <canvas id="simCanvas"></canvas>
@@ -39,22 +57,18 @@
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
-        const speedRange = document.getElementById('speedRange');
-
+        
         let width, height, particles = [], obstacles = [];
         let windSpeed = 7;
         let currentMode = 'draw';
+        let lineStyle = 'solid';
         let isDrawing = false;
-        
-        // Merkt sich die letzte Position für lückenloses Zeichnen
-        let lastDrawX = null;
-        let lastDrawY = null;
+        let lastX = null, lastY = null;
 
         function init() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             particles = [];
-            
             let spacing = 20; 
             for (let y = 10; y < height; y += spacing) {
                 for (let i = 0; i < width; i += 35) {
@@ -63,34 +77,35 @@
             }
         }
 
+        function setLineStyle(style) {
+            lineStyle = style;
+            document.getElementById('solidBtn').classList.toggle('active', style === 'solid');
+            document.getElementById('dashBtn').classList.toggle('active', style === 'dashed');
+        }
+
         class Particle {
             constructor(startX, startY) {
-                this.x = startX;
-                this.y = startY;
-                this.baseY = startY; 
-                this.vx = windSpeed;
-                this.vy = 0;
+                this.x = startX; this.y = startY; this.baseY = startY;
+                this.vx = windSpeed; this.vy = 0;
             }
             update() {
                 this.vx = windSpeed;
-                this.vy += (this.baseY - this.y) * 0.05; 
-                this.vy *= 0.82; 
+                this.vy += (this.baseY - this.y) * 0.05;
+                this.vy *= 0.82;
 
                 obstacles.forEach(obs => {
                     let dx = this.x - obs.x;
                     let dy = this.y - obs.y;
-                    let r = obs.r || 40;
+                    let r = obs.r;
                     
-                    if (obs.type === 'supercar') dy = this.y - (obs.y + 10); 
-                    else if (obs.type === 'wing') if (dy < 0) dy *= 1.2; 
+                    // Wenn gestrichelt, lassen wir die Luft teilweise durch
+                    if (obs.style === 'dashed' && Math.random() > 0.6) return;
 
                     let dist = Math.hypot(dx, dy);
-                    
-                    if (dist < r + 35) { 
-                        let force = (r + 35 - dist) / (r + 35);
-                        this.vx -= (dx / dist) * force * windSpeed * 0.85;
-                        this.vy += (dy / dist) * force * windSpeed * 1.4;
-                        
+                    if (dist < r + 30) {
+                        let force = (r + 30 - dist) / (r + 30);
+                        this.vx -= (dx / dist) * force * windSpeed * 0.9;
+                        this.vy += (dy / dist) * force * windSpeed * 1.5;
                         if (dist < r) {
                             this.x += (dx / dist) * (r - dist);
                             this.y += (dy / dist) * (r - dist);
@@ -100,138 +115,84 @@
 
                 this.x += this.vx;
                 this.y += this.vy;
-
-                if (this.x > width) {
-                    this.x = -10;
-                    this.y = this.baseY;
-                    this.vx = windSpeed;
-                    this.vy = 0;
-                }
+                if (this.x > width) { this.x = -10; this.y = this.baseY; this.vx = windSpeed; this.vy = 0; }
             }
             draw() {
                 ctx.fillStyle = "rgba(180, 230, 255, 0.8)";
-                ctx.fillRect(this.x, this.y, 4, 1.5); 
+                ctx.fillRect(this.x, this.y, 4, 1.5);
             }
         }
 
-        function drawShape(ctx, obs) {
-            ctx.fillStyle = "#111"; 
-            ctx.strokeStyle = "#00d4ff"; 
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            
-            if (obs.type === 'drop') {
-                ctx.arc(obs.x - 25, obs.y, 25, Math.PI / 2, -Math.PI / 2); 
-                ctx.bezierCurveTo(obs.x, obs.y - 25, obs.x + 20, obs.y - 5, obs.x + 60, obs.y); 
-                ctx.bezierCurveTo(obs.x + 20, obs.y + 5, obs.x, obs.y + 25, obs.x - 25, obs.y + 25); 
-            } 
-            else if (obs.type === 'wing') {
-                ctx.moveTo(obs.x - 45, obs.y + 5); 
-                ctx.bezierCurveTo(obs.x - 45, obs.y - 25, obs.x + 10, obs.y - 20, obs.x + 55, obs.y + 5); 
-                ctx.bezierCurveTo(obs.x + 10, obs.y + 10, obs.x - 40, obs.y + 15, obs.x - 45, obs.y + 5); 
-            } 
-            else if (obs.type === 'supercar') {
-                ctx.moveTo(obs.x - 55, obs.y + 20); 
-                ctx.lineTo(obs.x - 55, obs.y + 10); 
-                ctx.quadraticCurveTo(obs.x - 30, obs.y - 5, obs.x - 10, obs.y - 10); 
-                ctx.quadraticCurveTo(obs.x + 5,  obs.y - 30, obs.x + 25, obs.y - 25); 
-                ctx.lineTo(obs.x + 55, obs.y - 5); 
-                ctx.lineTo(obs.x + 55, obs.y + 20); 
-                ctx.lineTo(obs.x - 55, obs.y + 20);
-            } 
-            else if (obs.type === 'rocket') {
-                ctx.moveTo(obs.x + 45, obs.y);
-                ctx.quadraticCurveTo(obs.x, obs.y - 22, obs.x - 35, obs.y - 22);
-                ctx.lineTo(obs.x - 35, obs.y + 22);
-                ctx.quadraticCurveTo(obs.x, obs.y + 22, obs.x + 45, obs.y);
-            } 
-            else if (obs.type === 'cat') {
-                ctx.ellipse(obs.x - 5, obs.y + 5, 30, 20, 0, 0, Math.PI * 2); 
-                ctx.arc(obs.x + 25, obs.y - 10, 14, 0, Math.PI * 2); 
-                ctx.moveTo(obs.x + 18, obs.y - 20); ctx.lineTo(obs.x + 22, obs.y - 35); ctx.lineTo(obs.x + 28, obs.y - 22); 
-                ctx.moveTo(obs.x + 28, obs.y - 22); ctx.lineTo(obs.x + 34, obs.y - 35); ctx.lineTo(obs.x + 36, obs.y - 18); 
-            } 
-            
-            ctx.fill();
-            ctx.stroke();
+        function drawShapes() {
+            obstacles.forEach(obs => {
+                ctx.beginPath();
+                if (obs.type === 'draw') {
+                    ctx.fillStyle = obs.style === 'solid' ? "#00d4ff" : "rgba(0, 212, 255, 0.3)";
+                    ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = "#111"; ctx.strokeStyle = "#00d4ff"; ctx.lineWidth = 2;
+                    if (obs.type === 'wing') {
+                        ctx.moveTo(obs.x - 45, obs.y + 5);
+                        ctx.bezierCurveTo(obs.x - 45, obs.y - 25, obs.x + 10, obs.y - 20, obs.x + 55, obs.y + 5);
+                        ctx.bezierCurveTo(obs.x + 10, obs.y + 10, obs.x - 40, obs.y + 15, obs.x - 45, obs.y + 5);
+                    } else if (obs.type === 'supercar') {
+                        ctx.roundRect(obs.x - 50, obs.y - 15, 100, 30, 10);
+                    } else if (obs.type === 'drop') {
+                        ctx.arc(obs.x - 20, obs.y, 20, Math.PI/2, -Math.PI/2);
+                        ctx.lineTo(obs.x + 40, obs.y); ctx.closePath();
+                    }
+                    ctx.fill(); ctx.stroke();
+                }
+            });
         }
 
         function animate() {
-            ctx.fillStyle = 'rgba(2, 2, 2, 0.18)'; 
+            ctx.fillStyle = 'rgba(2, 2, 2, 0.2)';
             ctx.fillRect(0, 0, width, height);
-            
-            // Bodenlinie beim Auto
-            obstacles.forEach(obs => {
-                if (obs.type === 'supercar') {
-                    ctx.strokeStyle = "rgba(255,255,255,0.1)";
-                    ctx.beginPath(); ctx.moveTo(0, obs.y + 25); ctx.lineTo(width, obs.y + 25); ctx.stroke();
-                }
-                if (obs.type !== 'draw') drawShape(ctx, obs);
-            });
-
-            // Gezeichnete Linien als leuchtender Neon-Marker rendern
-            ctx.fillStyle = "#00d4ff"; 
-            ctx.shadowBlur = 12;
-            ctx.shadowColor = "#00d4ff";
-            ctx.beginPath();
-            obstacles.forEach(obs => {
-                if (obs.type === 'draw') {
-                    ctx.moveTo(obs.x + 10, obs.y);
-                    ctx.arc(obs.x, obs.y, 10, 0, Math.PI * 2); // Marker-Dicke
-                }
-            });
-            ctx.fill();
-            ctx.shadowBlur = 0; // Schatten zurücksetzen
-
+            drawShapes();
             particles.forEach(p => { p.update(); p.draw(); });
             requestAnimationFrame(animate);
         }
 
-        // Lückenloses Zeichnen (Interpolation)
         function handleInput(e, isStart) {
             const rect = canvas.getBoundingClientRect();
             const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
             const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
-            
+            const r = parseInt(document.getElementById('penSize').value);
+
             if (currentMode === 'draw') {
                 if (isStart) {
-                    lastDrawX = x;
-                    lastDrawY = y;
-                    obstacles.push({ x, y, type: 'draw', r: 12 });
-                } else if (lastDrawX !== null && lastDrawY !== null) {
-                    // Berechne Abstand zur letzten Position
-                    let dx = x - lastDrawX;
-                    let dy = y - lastDrawY;
-                    let dist = Math.hypot(dx, dy);
-                    let steps = Math.ceil(dist / 4); // Setzt jeden 4. Pixel einen Punkt für eine solide Wand
-                    
+                    lastX = x; lastY = y;
+                    obstacles.push({ x, y, type: 'draw', r: r, style: lineStyle });
+                } else if (lastX !== null) {
+                    let dist = Math.hypot(x - lastX, y - lastY);
+                    let steps = Math.ceil(dist / 5);
+                    // Gestrichelter Effekt beim Zeichnen
+                    let skipCount = 0;
                     for (let i = 1; i <= steps; i++) {
-                        let interpX = lastDrawX + (dx * i) / steps;
-                        let interpY = lastDrawY + (dy * i) / steps;
-                        obstacles.push({ x: interpX, y: interpY, type: 'draw', r: 12 });
+                        skipCount++;
+                        if (lineStyle === 'dashed' && skipCount % 4 === 0) continue; 
+                        let ix = lastX + (x - lastX) * (i / steps);
+                        let iy = lastY + (y - lastY) * (i / steps);
+                        obstacles.push({ x: ix, y: iy, type: 'draw', r: r, style: lineStyle });
                     }
-                    lastDrawX = x;
-                    lastDrawY = y;
+                    lastX = x; lastY = y;
                 }
             } else if (isStart) {
-                obstacles.push({ x, y, type: currentMode, r: (currentMode==='supercar'||currentMode==='wing'?55:40) });
+                obstacles.push({ x, y, type: currentMode, r: 45, style: 'solid' });
             }
         }
 
-        // Maus-Steuerung
-        canvas.addEventListener('mousedown', (e) => { isDrawing = true; handleInput(e, true); });
-        canvas.addEventListener('mousemove', (e) => { if (isDrawing) handleInput(e, false); });
-        window.addEventListener('mouseup', () => { isDrawing = false; lastDrawX = null; lastDrawY = null; });
-        
-        // Touch-Steuerung fürs iPad
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; handleInput(e, true); }, {passive: false});
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (isDrawing) handleInput(e, false); }, {passive: false});
-        canvas.addEventListener('touchend', () => { isDrawing = false; lastDrawX = null; lastDrawY = null; });
-        
-        speedRange.addEventListener('input', (e) => { windSpeed = parseFloat(e.target.value); });
+        canvas.addEventListener('mousedown', e => { isDrawing = true; handleInput(e, true); });
+        canvas.addEventListener('mousemove', e => { if (isDrawing) handleInput(e, false); });
+        window.addEventListener('mouseup', () => { isDrawing = false; lastX = null; });
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing = true; handleInput(e, true); }, {passive: false});
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); if (isDrawing) handleInput(e, false); }, {passive: false});
+        canvas.addEventListener('touchend', () => isDrawing = false);
+        document.getElementById('speedRange').oninput = e => windSpeed = parseFloat(e.target.value);
         function resetObstacles() { obstacles = []; }
-        
-        window.addEventListener('resize', init);
+        window.onresize = init;
         init(); animate();
     </script>
 </body>

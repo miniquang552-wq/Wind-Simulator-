@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Blueprint Edition</title>
+    <title>Aero Pro - Blueprint & Draw Edition</title>
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #020202; color: white; overflow: hidden; display: flex; flex-direction: column; }
         #ui { position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 20, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 220px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); }
@@ -21,14 +21,14 @@
         <label>Windgeschwindigkeit</label>
         <input type="range" id="speedRange" min="2" max="15" step="0.5" value="7">
         
-        <label>Präzisions-Modelle</label>
+        <label>Werkzeug / Modell</label>
         <select id="objectSelect" onchange="currentMode = this.value">
+            <option value="draw">✏️ Stift (Zeichnen)</option>
             <option value="wing">✈️ NACA-Flügelprofil</option>
             <option value="supercar">🏎️ GT-Sportwagen</option>
             <option value="rocket">🚀 Falcon-Spitze</option>
             <option value="drop">💧 Idealer Tropfen</option>
             <option value="cat">🐈 Katze (Profil)</option>
-            <option value="draw">✏️ Freihand</option>
         </select>
         
         <button onclick="resetObstacles()">🧹 Windkanal leeren</button>
@@ -43,8 +43,12 @@
 
         let width, height, particles = [], obstacles = [];
         let windSpeed = 7;
-        let currentMode = 'wing';
+        let currentMode = 'draw';
         let isDrawing = false;
+        
+        // Merkt sich die letzte Position für lückenloses Zeichnen
+        let lastDrawX = null;
+        let lastDrawY = null;
 
         function init() {
             width = canvas.width = window.innerWidth;
@@ -77,12 +81,8 @@
                     let dy = this.y - obs.y;
                     let r = obs.r || 40;
                     
-                    // Modellspezifische Anpassung des Strömungsfelds
-                    if (obs.type === 'supercar') {
-                        dy = this.y - (obs.y + 10); // Wind gleitet besser übers Dach
-                    } else if (obs.type === 'wing') {
-                        if (dy < 0) dy *= 1.2; // Sog-Effekt oben (Auftrieb)
-                    }
+                    if (obs.type === 'supercar') dy = this.y - (obs.y + 10); 
+                    else if (obs.type === 'wing') if (dy < 0) dy *= 1.2; 
 
                     let dist = Math.hypot(dx, dy);
                     
@@ -91,7 +91,6 @@
                         this.vx -= (dx / dist) * force * windSpeed * 0.85;
                         this.vy += (dy / dist) * force * windSpeed * 1.4;
                         
-                        // Kollisionsabfrage
                         if (dist < r) {
                             this.x += (dx / dist) * (r - dist);
                             this.y += (dy / dist) * (r - dist);
@@ -111,100 +110,123 @@
             }
             draw() {
                 ctx.fillStyle = "rgba(180, 230, 255, 0.8)";
-                ctx.fillRect(this.x, this.y, 4, 1.5); // Längliche Linien für mehr Speed-Gefühl
+                ctx.fillRect(this.x, this.y, 4, 1.5); 
             }
         }
 
-        // --- HIER SIND DIE NEUEN REALISTISCHEN MODELLE ---
         function drawShape(ctx, obs) {
-            ctx.fillStyle = "#111"; // Dunkelgraues Füllmaterial
-            ctx.strokeStyle = "#00d4ff"; // Blaue Neon-Kontur wie im Blueprint
+            ctx.fillStyle = "#111"; 
+            ctx.strokeStyle = "#00d4ff"; 
             ctx.lineWidth = 2;
             ctx.beginPath();
             
             if (obs.type === 'drop') {
-                // Perfekter aerodynamischer Tropfen
-                ctx.arc(obs.x - 25, obs.y, 25, Math.PI / 2, -Math.PI / 2); // Runde Front
-                ctx.bezierCurveTo(obs.x, obs.y - 25, obs.x + 20, obs.y - 5, obs.x + 60, obs.y); // Obere Kurve zur Spitze
-                ctx.bezierCurveTo(obs.x + 20, obs.y + 5, obs.x, obs.y + 25, obs.x - 25, obs.y + 25); // Untere Kurve
+                ctx.arc(obs.x - 25, obs.y, 25, Math.PI / 2, -Math.PI / 2); 
+                ctx.bezierCurveTo(obs.x, obs.y - 25, obs.x + 20, obs.y - 5, obs.x + 60, obs.y); 
+                ctx.bezierCurveTo(obs.x + 20, obs.y + 5, obs.x, obs.y + 25, obs.x - 25, obs.y + 25); 
             } 
             else if (obs.type === 'wing') {
-                // Asymmetrisches NACA Profil (oben runder als unten)
                 ctx.moveTo(obs.x - 45, obs.y + 5); 
-                ctx.bezierCurveTo(obs.x - 45, obs.y - 25, obs.x + 10, obs.y - 20, obs.x + 55, obs.y + 5); // Oben (viel Auftrieb)
-                ctx.bezierCurveTo(obs.x + 10, obs.y + 10, obs.x - 40, obs.y + 15, obs.x - 45, obs.y + 5); // Unten (flacher)
+                ctx.bezierCurveTo(obs.x - 45, obs.y - 25, obs.x + 10, obs.y - 20, obs.x + 55, obs.y + 5); 
+                ctx.bezierCurveTo(obs.x + 10, obs.y + 10, obs.x - 40, obs.y + 15, obs.x - 45, obs.y + 5); 
             } 
             else if (obs.type === 'supercar') {
-                // Realistische Sportwagen-Silhouette
-                ctx.moveTo(obs.x - 55, obs.y + 20); // Frontschürze unten
-                ctx.lineTo(obs.x - 55, obs.y + 10); // Frontschürze oben
-                ctx.quadraticCurveTo(obs.x - 30, obs.y - 5, obs.x - 10, obs.y - 10); // Motorhaube
-                ctx.quadraticCurveTo(obs.x + 5,  obs.y - 30, obs.x + 25, obs.y - 25); // Windschutzscheibe & Dach
-                ctx.lineTo(obs.x + 55, obs.y - 5); // Heckscheibe flach abfallend
-                ctx.lineTo(obs.x + 55, obs.y + 20); // Heck unten
-                // Bodenlinie leicht eingezogen (Ground Effect)
+                ctx.moveTo(obs.x - 55, obs.y + 20); 
+                ctx.lineTo(obs.x - 55, obs.y + 10); 
+                ctx.quadraticCurveTo(obs.x - 30, obs.y - 5, obs.x - 10, obs.y - 10); 
+                ctx.quadraticCurveTo(obs.x + 5,  obs.y - 30, obs.x + 25, obs.y - 25); 
+                ctx.lineTo(obs.x + 55, obs.y - 5); 
+                ctx.lineTo(obs.x + 55, obs.y + 20); 
                 ctx.lineTo(obs.x - 55, obs.y + 20);
             } 
             else if (obs.type === 'rocket') {
-                // Ogive Nasenkonus (klassische Raketenform)
                 ctx.moveTo(obs.x + 45, obs.y);
                 ctx.quadraticCurveTo(obs.x, obs.y - 22, obs.x - 35, obs.y - 22);
                 ctx.lineTo(obs.x - 35, obs.y + 22);
                 ctx.quadraticCurveTo(obs.x, obs.y + 22, obs.x + 45, obs.y);
             } 
             else if (obs.type === 'cat') {
-                // Abstrakte, aber organischere Katze
-                ctx.ellipse(obs.x - 5, obs.y + 5, 30, 20, 0, 0, Math.PI * 2); // Körper
-                ctx.arc(obs.x + 25, obs.y - 10, 14, 0, Math.PI * 2); // Kopf
-                ctx.moveTo(obs.x + 18, obs.y - 20); ctx.lineTo(obs.x + 22, obs.y - 35); ctx.lineTo(obs.x + 28, obs.y - 22); // Ohr links
-                ctx.moveTo(obs.x + 28, obs.y - 22); ctx.lineTo(obs.x + 34, obs.y - 35); ctx.lineTo(obs.x + 36, obs.y - 18); // Ohr rechts
+                ctx.ellipse(obs.x - 5, obs.y + 5, 30, 20, 0, 0, Math.PI * 2); 
+                ctx.arc(obs.x + 25, obs.y - 10, 14, 0, Math.PI * 2); 
+                ctx.moveTo(obs.x + 18, obs.y - 20); ctx.lineTo(obs.x + 22, obs.y - 35); ctx.lineTo(obs.x + 28, obs.y - 22); 
+                ctx.moveTo(obs.x + 28, obs.y - 22); ctx.lineTo(obs.x + 34, obs.y - 35); ctx.lineTo(obs.x + 36, obs.y - 18); 
             } 
-            else if (obs.type === 'draw') {
-                ctx.arc(obs.x, obs.y, 8, 0, Math.PI * 2);
-            }
             
             ctx.fill();
             ctx.stroke();
         }
 
         function animate() {
-            ctx.fillStyle = 'rgba(2, 2, 2, 0.18)'; // Motion Blur
+            ctx.fillStyle = 'rgba(2, 2, 2, 0.18)'; 
             ctx.fillRect(0, 0, width, height);
             
-            // Bodenlinie beim Auto einzeichnen, damit man den Unterboden-Effekt sieht
+            // Bodenlinie beim Auto
             obstacles.forEach(obs => {
                 if (obs.type === 'supercar') {
                     ctx.strokeStyle = "rgba(255,255,255,0.1)";
                     ctx.beginPath(); ctx.moveTo(0, obs.y + 25); ctx.lineTo(width, obs.y + 25); ctx.stroke();
                 }
-                drawShape(ctx, obs);
+                if (obs.type !== 'draw') drawShape(ctx, obs);
             });
+
+            // Gezeichnete Linien als leuchtender Neon-Marker rendern
+            ctx.fillStyle = "#00d4ff"; 
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = "#00d4ff";
+            ctx.beginPath();
+            obstacles.forEach(obs => {
+                if (obs.type === 'draw') {
+                    ctx.moveTo(obs.x + 10, obs.y);
+                    ctx.arc(obs.x, obs.y, 10, 0, Math.PI * 2); // Marker-Dicke
+                }
+            });
+            ctx.fill();
+            ctx.shadowBlur = 0; // Schatten zurücksetzen
 
             particles.forEach(p => { p.update(); p.draw(); });
             requestAnimationFrame(animate);
         }
 
-        function handleInput(e) {
+        // Lückenloses Zeichnen (Interpolation)
+        function handleInput(e, isStart) {
             const rect = canvas.getBoundingClientRect();
             const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
             const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
             
             if (currentMode === 'draw') {
-                if (obstacles.length === 0 || Math.hypot(x-obstacles[obstacles.length-1].x, y-obstacles[obstacles.length-1].y) > 10) {
-                    obstacles.push({ x, y, type: 'draw', r: 15 });
+                if (isStart) {
+                    lastDrawX = x;
+                    lastDrawY = y;
+                    obstacles.push({ x, y, type: 'draw', r: 12 });
+                } else if (lastDrawX !== null && lastDrawY !== null) {
+                    // Berechne Abstand zur letzten Position
+                    let dx = x - lastDrawX;
+                    let dy = y - lastDrawY;
+                    let dist = Math.hypot(dx, dy);
+                    let steps = Math.ceil(dist / 4); // Setzt jeden 4. Pixel einen Punkt für eine solide Wand
+                    
+                    for (let i = 1; i <= steps; i++) {
+                        let interpX = lastDrawX + (dx * i) / steps;
+                        let interpY = lastDrawY + (dy * i) / steps;
+                        obstacles.push({ x: interpX, y: interpY, type: 'draw', r: 12 });
+                    }
+                    lastDrawX = x;
+                    lastDrawY = y;
                 }
-            } else if (e.type === 'mousedown' || e.type === 'touchstart') {
+            } else if (isStart) {
                 obstacles.push({ x, y, type: currentMode, r: (currentMode==='supercar'||currentMode==='wing'?55:40) });
             }
         }
 
-        canvas.addEventListener('mousedown', (e) => { isDrawing=true; handleInput(e); });
-        canvas.addEventListener('mousemove', (e) => { if(isDrawing) handleInput(e); });
-        window.addEventListener('mouseup', () => isDrawing=false);
+        // Maus-Steuerung
+        canvas.addEventListener('mousedown', (e) => { isDrawing = true; handleInput(e, true); });
+        canvas.addEventListener('mousemove', (e) => { if (isDrawing) handleInput(e, false); });
+        window.addEventListener('mouseup', () => { isDrawing = false; lastDrawX = null; lastDrawY = null; });
         
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing=true; handleInput(e); }, {passive: false});
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if(isDrawing) handleInput(e); }, {passive: false});
-        canvas.addEventListener('touchend', () => isDrawing=false);
+        // Touch-Steuerung fürs iPad
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; handleInput(e, true); }, {passive: false});
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (isDrawing) handleInput(e, false); }, {passive: false});
+        canvas.addEventListener('touchend', () => { isDrawing = false; lastDrawX = null; lastDrawY = null; });
         
         speedRange.addEventListener('input', (e) => { windSpeed = parseFloat(e.target.value); });
         function resetObstacles() { obstacles = []; }

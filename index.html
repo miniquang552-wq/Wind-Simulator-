@@ -3,19 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Advanced Drawing</title>
+    <title>Aero Pro - Dynamic UI Edition</title>
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #020202; color: white; overflow: hidden; display: flex; flex-direction: column; }
-        #ui { position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 20, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 220px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); backdrop-filter: blur(10px); }
+        #ui { position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 20, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 220px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); backdrop-filter: blur(10px); transition: all 0.3s ease; }
         h3 { margin: 0 0 10px 0; color: #00d4ff; font-size: 14px; text-transform: uppercase; text-align: center; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 5px; }
         .section { margin-bottom: 15px; padding: 5px 0; }
         label { display: block; font-size: 10px; color: #888; margin-bottom: 4px; text-transform: uppercase; }
-        select, input[type="range"] { width: 100%; margin-bottom: 8px; background: #1a1a1a; color: white; border: 1px solid #444; padding: 6px; border-radius: 6px; font-size: 12px; }
+        select, input[type="range"] { width: 100%; margin-bottom: 8px; background: #1a1a1a; color: white; border: 1px solid #444; padding: 6px; border-radius: 6px; font-size: 12px; outline: none; }
         .btn-group { display: flex; gap: 5px; }
         button { flex: 1; background: #1a1a1a; color: white; border: 1px solid #444; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: 0.2s; }
         button.active { background: #00d4ff; color: #000; border-color: #00d4ff; font-weight: bold; }
-        #resetBtn { background: #ff4444; color: white; border: none; margin-top: 10px; width: 100%; }
+        #resetBtn { background: #ff4444; color: white; border: none; margin-top: 5px; width: 100%; font-weight: bold; }
         canvas { display: block; touch-action: none; }
+        
+        /* Animation für das Ein- und Ausblenden der Stift-Leiste */
+        #penControls { display: block; overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 150px; opacity: 1; }
+        #penControls.hidden { max-height: 0; opacity: 0; margin: 0; padding: 0; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -25,11 +29,13 @@
         
         <div class="section">
             <label>Modell / Werkzeug</label>
-            <select id="objectSelect" onchange="currentMode = this.value">
+            <select id="objectSelect" onchange="changeMode(this.value)">
                 <option value="draw">✏️ Freihand Stift</option>
                 <option value="wing">✈️ NACA Flügel</option>
                 <option value="supercar">🏎️ GT Auto</option>
+                <option value="rocket">🚀 Raketenspitze</option>
                 <option value="drop">💧 Tropfen</option>
+                <option value="cat">🐈 Katze</option>
             </select>
         </div>
 
@@ -49,7 +55,7 @@
             <input type="range" id="speedRange" min="2" max="15" step="0.5" value="7">
         </div>
         
-        <button id="resetBtn" onclick="resetObstacles()">Kanal leeren</button>
+        <button id="resetBtn" onclick="resetObstacles()">🧹 Kanal leeren</button>
     </div>
 
     <canvas id="simCanvas"></canvas>
@@ -77,6 +83,17 @@
             }
         }
 
+        // Steuert das Ein- und Ausblenden der Stift-Optionen
+        function changeMode(mode) {
+            currentMode = mode;
+            const penControls = document.getElementById('penControls');
+            if (mode === 'draw') {
+                penControls.classList.remove('hidden');
+            } else {
+                penControls.classList.add('hidden');
+            }
+        }
+
         function setLineStyle(style) {
             lineStyle = style;
             document.getElementById('solidBtn').classList.toggle('active', style === 'solid');
@@ -98,6 +115,9 @@
                     let dy = this.y - obs.y;
                     let r = obs.r;
                     
+                    if (obs.type === 'supercar') dy = this.y - (obs.y + 10);
+                    else if (obs.type === 'wing') if (dy < 0) dy *= 1.2;
+
                     // Wenn gestrichelt, lassen wir die Luft teilweise durch
                     if (obs.style === 'dashed' && Math.random() > 0.6) return;
 
@@ -132,16 +152,35 @@
                     ctx.fill();
                 } else {
                     ctx.fillStyle = "#111"; ctx.strokeStyle = "#00d4ff"; ctx.lineWidth = 2;
+                    
                     if (obs.type === 'wing') {
                         ctx.moveTo(obs.x - 45, obs.y + 5);
                         ctx.bezierCurveTo(obs.x - 45, obs.y - 25, obs.x + 10, obs.y - 20, obs.x + 55, obs.y + 5);
                         ctx.bezierCurveTo(obs.x + 10, obs.y + 10, obs.x - 40, obs.y + 15, obs.x - 45, obs.y + 5);
                     } else if (obs.type === 'supercar') {
-                        ctx.roundRect(obs.x - 50, obs.y - 15, 100, 30, 10);
+                        ctx.moveTo(obs.x - 55, obs.y + 20); 
+                        ctx.lineTo(obs.x - 55, obs.y + 10); 
+                        ctx.quadraticCurveTo(obs.x - 30, obs.y - 5, obs.x - 10, obs.y - 10); 
+                        ctx.quadraticCurveTo(obs.x + 5,  obs.y - 30, obs.x + 25, obs.y - 25); 
+                        ctx.lineTo(obs.x + 55, obs.y - 5); 
+                        ctx.lineTo(obs.x + 55, obs.y + 20); 
+                        ctx.lineTo(obs.x - 55, obs.y + 20);
                     } else if (obs.type === 'drop') {
-                        ctx.arc(obs.x - 20, obs.y, 20, Math.PI/2, -Math.PI/2);
-                        ctx.lineTo(obs.x + 40, obs.y); ctx.closePath();
+                        ctx.arc(obs.x - 25, obs.y, 25, Math.PI / 2, -Math.PI / 2); 
+                        ctx.bezierCurveTo(obs.x, obs.y - 25, obs.x + 20, obs.y - 5, obs.x + 60, obs.y); 
+                        ctx.bezierCurveTo(obs.x + 20, obs.y + 5, obs.x, obs.y + 25, obs.x - 25, obs.y + 25);
+                    } else if (obs.type === 'rocket') {
+                        ctx.moveTo(obs.x + 45, obs.y);
+                        ctx.quadraticCurveTo(obs.x, obs.y - 22, obs.x - 35, obs.y - 22);
+                        ctx.lineTo(obs.x - 35, obs.y + 22);
+                        ctx.quadraticCurveTo(obs.x, obs.y + 22, obs.x + 45, obs.y);
+                    } else if (obs.type === 'cat') {
+                        ctx.ellipse(obs.x - 5, obs.y + 5, 30, 20, 0, 0, Math.PI * 2); 
+                        ctx.arc(obs.x + 25, obs.y - 10, 14, 0, Math.PI * 2); 
+                        ctx.moveTo(obs.x + 18, obs.y - 20); ctx.lineTo(obs.x + 22, obs.y - 35); ctx.lineTo(obs.x + 28, obs.y - 22); 
+                        ctx.moveTo(obs.x + 28, obs.y - 22); ctx.lineTo(obs.x + 34, obs.y - 35); ctx.lineTo(obs.x + 36, obs.y - 18); 
                     }
+                    
                     ctx.fill(); ctx.stroke();
                 }
             });
@@ -150,6 +189,15 @@
         function animate() {
             ctx.fillStyle = 'rgba(2, 2, 2, 0.2)';
             ctx.fillRect(0, 0, width, height);
+            
+            // Bodenlinie beim Auto rendern
+            obstacles.forEach(obs => {
+                if (obs.type === 'supercar') {
+                    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+                    ctx.beginPath(); ctx.moveTo(0, obs.y + 25); ctx.lineTo(width, obs.y + 25); ctx.stroke();
+                }
+            });
+            
             drawShapes();
             particles.forEach(p => { p.update(); p.draw(); });
             requestAnimationFrame(animate);
@@ -168,7 +216,6 @@
                 } else if (lastX !== null) {
                     let dist = Math.hypot(x - lastX, y - lastY);
                     let steps = Math.ceil(dist / 5);
-                    // Gestrichelter Effekt beim Zeichnen
                     let skipCount = 0;
                     for (let i = 1; i <= steps; i++) {
                         skipCount++;
@@ -180,7 +227,7 @@
                     lastX = x; lastY = y;
                 }
             } else if (isStart) {
-                obstacles.push({ x, y, type: currentMode, r: 45, style: 'solid' });
+                obstacles.push({ x, y, type: currentMode, r: (currentMode==='supercar'||currentMode==='wing'?55:40), style: 'solid' });
             }
         }
 

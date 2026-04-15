@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Dynamic UI Edition</title>
+    <title>Aero Pro - Real Physics Grid</title>
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #020202; color: white; overflow: hidden; display: flex; flex-direction: column; }
         #ui { position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 20, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 220px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); backdrop-filter: blur(10px); transition: all 0.3s ease; }
@@ -17,7 +17,6 @@
         #resetBtn { background: #ff4444; color: white; border: none; margin-top: 5px; width: 100%; font-weight: bold; }
         canvas { display: block; touch-action: none; }
         
-        /* Animation für das Ein- und Ausblenden der Stift-Leiste */
         #penControls { display: block; overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 150px; opacity: 1; }
         #penControls.hidden { max-height: 0; opacity: 0; margin: 0; padding: 0; pointer-events: none; }
     </style>
@@ -70,6 +69,7 @@
         let lineStyle = 'solid';
         let isDrawing = false;
         let lastX = null, lastY = null;
+        let drawDistance = 0; // Neu: Zählt die gezogenen Pixel für perfekte Gitter-Abstände
 
         function init() {
             width = canvas.width = window.innerWidth;
@@ -83,7 +83,6 @@
             }
         }
 
-        // Steuert das Ein- und Ausblenden der Stift-Optionen
         function changeMode(mode) {
             currentMode = mode;
             const penControls = document.getElementById('penControls');
@@ -118,8 +117,8 @@
                     if (obs.type === 'supercar') dy = this.y - (obs.y + 10);
                     else if (obs.type === 'wing') if (dy < 0) dy *= 1.2;
 
-                    // Wenn gestrichelt, lassen wir die Luft teilweise durch
-                    if (obs.style === 'dashed' && Math.random() > 0.6) return;
+                    // HIER GIBT ES KEINEN FAKE-ZUFALL MEHR!
+                    // Der Wind muss jetzt wirklich durch die echten Lücken fließen.
 
                     let dist = Math.hypot(dx, dy);
                     if (dist < r + 30) {
@@ -147,12 +146,18 @@
             obstacles.forEach(obs => {
                 ctx.beginPath();
                 if (obs.type === 'draw') {
-                    ctx.fillStyle = obs.style === 'solid' ? "#00d4ff" : "rgba(0, 212, 255, 0.3)";
-                    ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI * 2);
-                    ctx.fill();
+                    if (obs.style === 'solid') {
+                        // Solide, dicke Linie
+                        ctx.fillStyle = "#00d4ff";
+                        ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else {
+                        // Echtes Gitter: Wir zeichnen kleine Pfeiler/Blöcke anstatt durchgehender Kreise
+                        ctx.fillStyle = "#00d4ff";
+                        ctx.fillRect(obs.x - obs.r/2, obs.y - obs.r, obs.r, obs.r * 2); 
+                    }
                 } else {
                     ctx.fillStyle = "#111"; ctx.strokeStyle = "#00d4ff"; ctx.lineWidth = 2;
-                    
                     if (obs.type === 'wing') {
                         ctx.moveTo(obs.x - 45, obs.y + 5);
                         ctx.bezierCurveTo(obs.x - 45, obs.y - 25, obs.x + 10, obs.y - 20, obs.x + 55, obs.y + 5);
@@ -180,7 +185,6 @@
                         ctx.moveTo(obs.x + 18, obs.y - 20); ctx.lineTo(obs.x + 22, obs.y - 35); ctx.lineTo(obs.x + 28, obs.y - 22); 
                         ctx.moveTo(obs.x + 28, obs.y - 22); ctx.lineTo(obs.x + 34, obs.y - 35); ctx.lineTo(obs.x + 36, obs.y - 18); 
                     }
-                    
                     ctx.fill(); ctx.stroke();
                 }
             });
@@ -190,7 +194,6 @@
             ctx.fillStyle = 'rgba(2, 2, 2, 0.2)';
             ctx.fillRect(0, 0, width, height);
             
-            // Bodenlinie beim Auto rendern
             obstacles.forEach(obs => {
                 if (obs.type === 'supercar') {
                     ctx.strokeStyle = "rgba(255,255,255,0.1)";
@@ -212,17 +215,30 @@
             if (currentMode === 'draw') {
                 if (isStart) {
                     lastX = x; lastY = y;
+                    drawDistance = 0; // Setze Distanz beim ersten Klicken zurück
                     obstacles.push({ x, y, type: 'draw', r: r, style: lineStyle });
                 } else if (lastX !== null) {
                     let dist = Math.hypot(x - lastX, y - lastY);
-                    let steps = Math.ceil(dist / 5);
-                    let skipCount = 0;
+                    if (dist < 2) return; // Zu kleine Mikrobewegungen ignorieren
+
+                    let steps = Math.ceil(dist / 2); // 2px Schritte für präzise Berechnungen
+                    
                     for (let i = 1; i <= steps; i++) {
-                        skipCount++;
-                        if (lineStyle === 'dashed' && skipCount % 4 === 0) continue; 
+                        drawDistance += 2; // Wir haben 2 Pixel Weg zurückgelegt
                         let ix = lastX + (x - lastX) * (i / steps);
                         let iy = lastY + (y - lastY) * (i / steps);
-                        obstacles.push({ x: ix, y: iy, type: 'draw', r: r, style: lineStyle });
+                        
+                        if (lineStyle === 'dashed') {
+                            // HIER ENTSTEHT DAS ECHTE GITTER
+                            // Ein neuer Gitterpfosten wird nur alle (Radius * 3) Pixel platziert
+                            let gapSize = r * 3;
+                            if (drawDistance % gapSize < 2) { 
+                                obstacles.push({ x: ix, y: iy, type: 'draw', r: r, style: 'dashed' });
+                            }
+                        } else {
+                            // Solide Wand wird durchgehend gezeichnet
+                            obstacles.push({ x: ix, y: iy, type: 'draw', r: r, style: 'solid' });
+                        }
                     }
                     lastX = x; lastY = y;
                 }
@@ -236,7 +252,7 @@
         window.addEventListener('mouseup', () => { isDrawing = false; lastX = null; });
         canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing = true; handleInput(e, true); }, {passive: false});
         canvas.addEventListener('touchmove', e => { e.preventDefault(); if (isDrawing) handleInput(e, false); }, {passive: false});
-        canvas.addEventListener('touchend', () => isDrawing = false);
+        canvas.addEventListener('touchend', () => { isDrawing = false; lastX = null; });
         document.getElementById('speedRange').oninput = e => windSpeed = parseFloat(e.target.value);
         function resetObstacles() { obstacles = []; }
         window.onresize = init;

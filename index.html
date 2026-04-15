@@ -3,30 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Real Physics Grid</title>
+    <title>Aero Pro - Anti-Cheat Edition</title>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #020202; color: white; overflow: hidden; display: flex; flex-direction: column; }
-        #ui { position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 20, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 220px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); backdrop-filter: blur(10px); transition: all 0.3s ease; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #020202; color: white; overflow: hidden; display: flex; flex-direction: column; transition: background 0.5s; }
+        #ui { position: absolute; top: 15px; left: 15px; background: rgba(15, 15, 20, 0.9); padding: 15px; border-radius: 12px; border: 1px solid #333; z-index: 10; width: 230px; box-shadow: 0 5px 20px rgba(0,0,0,0.8); backdrop-filter: blur(10px); transition: all 0.3s ease; }
         h3 { margin: 0 0 10px 0; color: #00d4ff; font-size: 14px; text-transform: uppercase; text-align: center; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 5px; }
         .section { margin-bottom: 15px; padding: 5px 0; }
         label { display: block; font-size: 10px; color: #888; margin-bottom: 4px; text-transform: uppercase; }
         select, input[type="range"] { width: 100%; margin-bottom: 8px; background: #1a1a1a; color: white; border: 1px solid #444; padding: 6px; border-radius: 6px; font-size: 12px; outline: none; }
-        .btn-group { display: flex; gap: 5px; }
+        .btn-group { display: flex; gap: 5px; margin-bottom: 8px; }
         button { flex: 1; background: #1a1a1a; color: white; border: 1px solid #444; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: 0.2s; }
         button.active { background: #00d4ff; color: #000; border-color: #00d4ff; font-weight: bold; }
         #resetBtn { background: #ff4444; color: white; border: none; margin-top: 5px; width: 100%; font-weight: bold; }
         canvas { display: block; touch-action: none; }
         
-        #penControls { display: block; overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 150px; opacity: 1; }
+        #penControls { display: block; overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 200px; opacity: 1; }
         #penControls.hidden { max-height: 0; opacity: 0; margin: 0; padding: 0; pointer-events: none; }
+        
+        #shapeControls { display: flex; overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 50px; opacity: 1; }
+        #shapeControls.hidden { max-height: 0; opacity: 0; margin: 0; pointer-events: none; }
+        
+        /* Alarm-Effekt für Cheater */
+        .cheat-alarm { background: #4a0000 !important; }
+        .cheat-alarm h3 { color: #ff0000 !important; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h3>Windkanal Pro</h3>
+        <h3 id="appTitle">Windkanal Pro</h3>
         
-        <div class="section">
+        <div class="section" id="menuText1">
             <label>Modell / Werkzeug</label>
             <select id="objectSelect" onchange="changeMode(this.value)">
                 <option value="draw">✏️ Freihand Stift</option>
@@ -46,6 +53,11 @@
             <div class="btn-group">
                 <button id="solidBtn" class="active" onclick="setLineStyle('solid')">Voll</button>
                 <button id="dashBtn" onclick="setLineStyle('dashed')">Gitter</button>
+            </div>
+            
+            <div id="shapeControls" class="btn-group hidden">
+                <button id="circleBtn" class="active" onclick="setPenShape('circle')">⚫ Kreise</button>
+                <button id="rectBtn" onclick="setPenShape('rect')">▮ Rechtecke</button>
             </div>
         </div>
 
@@ -67,9 +79,10 @@
         let windSpeed = 7;
         let currentMode = 'draw';
         let lineStyle = 'solid';
+        let penShape = 'circle';
         let isDrawing = false;
         let lastX = null, lastY = null;
-        let drawDistance = 0; // Neu: Zählt die gezogenen Pixel für perfekte Gitter-Abstände
+        let drawDistance = 0;
 
         function init() {
             width = canvas.width = window.innerWidth;
@@ -86,17 +99,24 @@
         function changeMode(mode) {
             currentMode = mode;
             const penControls = document.getElementById('penControls');
-            if (mode === 'draw') {
-                penControls.classList.remove('hidden');
-            } else {
-                penControls.classList.add('hidden');
-            }
+            if (mode === 'draw') penControls.classList.remove('hidden');
+            else penControls.classList.add('hidden');
         }
 
         function setLineStyle(style) {
             lineStyle = style;
             document.getElementById('solidBtn').classList.toggle('active', style === 'solid');
             document.getElementById('dashBtn').classList.toggle('active', style === 'dashed');
+            
+            const shapeControls = document.getElementById('shapeControls');
+            if (style === 'dashed') shapeControls.classList.remove('hidden');
+            else shapeControls.classList.add('hidden');
+        }
+
+        function setPenShape(shape) {
+            penShape = shape;
+            document.getElementById('circleBtn').classList.toggle('active', shape === 'circle');
+            document.getElementById('rectBtn').classList.toggle('active', shape === 'rect');
         }
 
         class Particle {
@@ -116,9 +136,6 @@
                     
                     if (obs.type === 'supercar') dy = this.y - (obs.y + 10);
                     else if (obs.type === 'wing') if (dy < 0) dy *= 1.2;
-
-                    // HIER GIBT ES KEINEN FAKE-ZUFALL MEHR!
-                    // Der Wind muss jetzt wirklich durch die echten Lücken fließen.
 
                     let dist = Math.hypot(dx, dy);
                     if (dist < r + 30) {
@@ -146,15 +163,25 @@
             obstacles.forEach(obs => {
                 ctx.beginPath();
                 if (obs.type === 'draw') {
+                    ctx.fillStyle = "#00d4ff";
+                    
                     if (obs.style === 'solid') {
-                        // Solide, dicke Linie
-                        ctx.fillStyle = "#00d4ff";
                         ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI * 2);
                         ctx.fill();
-                    } else {
-                        // Echtes Gitter: Wir zeichnen kleine Pfeiler/Blöcke anstatt durchgehender Kreise
-                        ctx.fillStyle = "#00d4ff";
-                        ctx.fillRect(obs.x - obs.r/2, obs.y - obs.r, obs.r, obs.r * 2); 
+                    } else if (obs.style === 'dashed') {
+                        if (obs.shape === 'rect') {
+                            // Rechtecke in die korrekte Richtung drehen
+                            ctx.save();
+                            ctx.translate(obs.x, obs.y);
+                            ctx.rotate(obs.angle + Math.PI/2); // Senkrecht zum Strich ausrichten
+                            // Zeichne ein Rechteck zentriert auf den Koordinaten
+                            ctx.fillRect(-obs.r, -obs.r/3, obs.r * 2, obs.r / 1.5);
+                            ctx.restore();
+                        } else {
+                            // Kreise als Gitter
+                            ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
                     }
                 } else {
                     ctx.fillStyle = "#111"; ctx.strokeStyle = "#00d4ff"; ctx.lineWidth = 2;
@@ -215,35 +242,35 @@
             if (currentMode === 'draw') {
                 if (isStart) {
                     lastX = x; lastY = y;
-                    drawDistance = 0; // Setze Distanz beim ersten Klicken zurück
-                    obstacles.push({ x, y, type: 'draw', r: r, style: lineStyle });
+                    drawDistance = 0;
+                    obstacles.push({ x, y, type: 'draw', r: r, style: lineStyle, shape: penShape, angle: 0 });
                 } else if (lastX !== null) {
-                    let dist = Math.hypot(x - lastX, y - lastY);
-                    if (dist < 2) return; // Zu kleine Mikrobewegungen ignorieren
+                    let dx = x - lastX;
+                    let dy = y - lastY;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist < 2) return; 
 
-                    let steps = Math.ceil(dist / 2); // 2px Schritte für präzise Berechnungen
+                    let steps = Math.ceil(dist / 2); 
+                    let drawAngle = Math.atan2(dy, dx); // Berechnet die Zugrichtung des Stifts
                     
                     for (let i = 1; i <= steps; i++) {
-                        drawDistance += 2; // Wir haben 2 Pixel Weg zurückgelegt
-                        let ix = lastX + (x - lastX) * (i / steps);
-                        let iy = lastY + (y - lastY) * (i / steps);
+                        drawDistance += 2; 
+                        let ix = lastX + dx * (i / steps);
+                        let iy = lastY + dy * (i / steps);
                         
                         if (lineStyle === 'dashed') {
-                            // HIER ENTSTEHT DAS ECHTE GITTER
-                            // Ein neuer Gitterpfosten wird nur alle (Radius * 3) Pixel platziert
-                            let gapSize = r * 3;
+                            let gapSize = r * 3.5; // Abstand zwischen den Gitter-Elementen
                             if (drawDistance % gapSize < 2) { 
-                                obstacles.push({ x: ix, y: iy, type: 'draw', r: r, style: 'dashed' });
+                                obstacles.push({ x: ix, y: iy, type: 'draw', r: r, style: 'dashed', shape: penShape, angle: drawAngle });
                             }
                         } else {
-                            // Solide Wand wird durchgehend gezeichnet
-                            obstacles.push({ x: ix, y: iy, type: 'draw', r: r, style: 'solid' });
+                            obstacles.push({ x: ix, y: iy, type: 'draw', r: r, style: 'solid', shape: 'circle', angle: drawAngle });
                         }
                     }
                     lastX = x; lastY = y;
                 }
             } else if (isStart) {
-                obstacles.push({ x, y, type: currentMode, r: (currentMode==='supercar'||currentMode==='wing'?55:40), style: 'solid' });
+                obstacles.push({ x, y, type: currentMode, r: (currentMode==='supercar'||currentMode==='wing'?55:40) });
             }
         }
 
@@ -257,6 +284,45 @@
         function resetObstacles() { obstacles = []; }
         window.onresize = init;
         init(); animate();
+
+        // --------------------------------------------------------
+        // 🚨 ANTI-CHEAT SYSTEM 🚨
+        // --------------------------------------------------------
+        const targetNode = document.getElementById('ui');
+        const observerConfig = { characterData: true, subtree: true, childList: true };
+        
+        // Verhindert, dass der Kumpel im DOM rumbastelt
+        const antiCheatObserver = new MutationObserver(function(mutationsList) {
+            for(let mutation of mutationsList) {
+                // Wenn ein Text geändert wurde, der nicht unsere Slider-Inputs sind...
+                if (mutation.type === 'characterData' || (mutation.type === 'childList' && mutation.addedNodes.length > 0 && mutation.addedNodes[0].nodeType === 3)) {
+                    triggerAntiCheat();
+                }
+            }
+        });
+
+        // Scharfschalten, sobald die App geladen ist (verzögert um 2 Sekunden, um Initialisierung nicht zu blockieren)
+        setTimeout(() => { antiCheatObserver.observe(targetNode, observerConfig); }, 2000);
+
+        function triggerAntiCheat() {
+            antiCheatObserver.disconnect(); // Verhindert Endlos-Schleife
+            
+            alert("🚨 ANTI-CHEAT ALARM 🚨\n\nNetter Versuch, Kumpel! Manipulation des System entdeckt.\nWindkanal wird auf Notfall-Protokoll umgestellt!");
+            
+            // Bildschirm rot färben
+            document.body.classList.add("cheat-alarm");
+            document.getElementById('ui').classList.add("cheat-alarm");
+            
+            // Windgeschwindigkeit auf Mach 10 setzen (eskalation)
+            windSpeed = 80; 
+            document.getElementById('speedRange').value = 15;
+            
+            // Alle Hindernisse wegpusten
+            obstacles = [];
+            
+            // Text auf Trolleinstellung setzen
+            document.getElementById('appTitle').innerText = "CHEATER DETECTED";
+        }
     </script>
 </body>
 </html>

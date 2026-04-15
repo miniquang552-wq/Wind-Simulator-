@@ -3,24 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Anti-Cheat & Turbulence</title>
+    <title>Aero Pro - Final Edition</title>
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #050505; color: white; overflow: hidden; display: flex; flex-direction: column; transition: background 0.5s; }
-        #ui { position: absolute; top: 15px; left: 15px; background: rgba(10, 10, 15, 0.95); padding: 15px; border-radius: 12px; border: 1px solid #444; z-index: 10; width: 240px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); transition: all 0.3s ease; }
+        #ui { position: absolute; top: 15px; left: 15px; background: rgba(10, 10, 15, 0.95); padding: 15px; border-radius: 12px; border: 1px solid #444; z-index: 10; width: 240px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
         h3 { margin: 0 0 10px 0; color: #00ffcc; font-size: 14px; text-transform: uppercase; text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
         .section { margin-bottom: 12px; }
         label { display: block; font-size: 10px; color: #aaa; margin-bottom: 4px; text-transform: uppercase; }
-        select, input[type="range"] { width: 100%; margin-bottom: 8px; background: #111; color: white; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 12px; }
+        select, input[type="range"] { width: 100%; margin-bottom: 8px; background: #111; color: white; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 12px; outline: none; }
         .btn-group { display: flex; gap: 4px; margin-bottom: 8px; }
         button { flex: 1; background: #222; color: white; border: 1px solid #444; padding: 7px; border-radius: 4px; cursor: pointer; font-size: 10px; transition: 0.2s; }
         button.active { background: #00ffcc; color: #000; border-color: #00ffcc; font-weight: bold; }
-        #resetBtn { background: #cc0000; color: white; border: none; width: 100%; font-weight: bold; margin-top: 5px; }
+        #resetBtn { background: #cc0000; color: white; border: none; width: 100%; font-weight: bold; margin-top: 5px; cursor: pointer; padding: 10px; border-radius: 4px; }
         canvas { display: block; touch-action: none; cursor: crosshair; }
-        .hidden { display: none !important; }
+        
+        /* Die magische Leiste, die verschwindet */
+        #penControls { display: block; overflow: hidden; transition: max-height 0.4s ease, opacity 0.3s ease; max-height: 200px; opacity: 1; }
+        #penControls.hidden { max-height: 0; opacity: 0; margin: 0; padding: 0; pointer-events: none; }
+        
+        #shapeSubControls { display: flex; transition: 0.3s; }
+        #shapeSubControls.hidden { display: none; }
 
-        /* Anti-Cheat Visuelle Effekte */
+        /* Anti-Cheat Look */
         .cheat-detected { background: #550000 !important; border-color: #ff0000 !important; }
-        .cheat-detected h3 { color: #ff0000 !important; content: "MANIPULATION!" }
+        .cheat-detected h3 { color: #ff0000 !important; }
     </style>
 </head>
 <body>
@@ -30,7 +36,7 @@
         
         <div class="section">
             <label>Werkzeug</label>
-            <select id="objectSelect" onchange="updateUI(this.value)">
+            <select id="objectSelect" onchange="updateToolMode(this.value)">
                 <option value="draw">✏️ Freihand Stift</option>
                 <option value="rect_fixed">⬛ Festes Quadrat</option>
                 <option value="circle_fixed">🌑 Fester Kreis</option>
@@ -40,7 +46,7 @@
         </div>
 
         <div id="penControls" class="section">
-            <label>Stift-Eigenschaften</label>
+            <label>Stift-Einstellungen</label>
             <input type="range" id="penSize" min="5" max="35" value="15">
             <div class="btn-group">
                 <button id="solidBtn" class="active" onclick="setLineStyle('solid')">Voll</button>
@@ -86,9 +92,15 @@
             }
         }
 
-        function updateUI(mode) {
+        // Steuert das Ein- und Ausblenden der Leiste
+        function updateToolMode(mode) {
             currentMode = mode;
-            document.getElementById('penControls').classList.toggle('hidden', !mode.includes('draw') && !mode.includes('fixed'));
+            const penControls = document.getElementById('penControls');
+            if (mode === 'draw') {
+                penControls.classList.remove('hidden');
+            } else {
+                penControls.classList.add('hidden');
+            }
         }
 
         function setLineStyle(style) {
@@ -134,10 +146,9 @@
                         }
                     }
 
-                    // Aufwirbelung im Windschatten
                     if (this.x > obs.x && this.x < obs.x + 250) {
                         if (Math.abs(this.y - obs.y) < r * 1.4) {
-                            this.turb += isCheater ? 5.0 : 0.18;
+                            this.turb += isCheater ? 10.0 : 0.2;
                             this.vy += Math.sin(this.x * 0.04 + Date.now() * 0.01) * this.turb;
                         }
                     }
@@ -148,31 +159,35 @@
                 if (this.x > width) { this.x = -10; this.y = this.baseY; this.turb = 0; }
             }
             draw() {
-                let r = Math.min(255, this.turb * 70);
-                let g = Math.max(0, 255 - (this.turb * 90));
-                let b = Math.max(100, 200 - (this.turb * 150));
-                ctx.fillStyle = isCheater ? `rgb(255, 0, 0)` : `rgb(${r}, ${g}, ${b})`;
-                ctx.fillRect(this.x, this.y, isCheater ? 10 : 3.5, 1.5);
+                let r = Math.min(255, this.turb * 75);
+                let g = Math.max(0, 255 - (this.turb * 100));
+                let b = Math.max(100, 255 - (this.turb * 200));
+                ctx.fillStyle = isCheater ? `red` : `rgb(${r}, ${g}, ${b})`;
+                ctx.fillRect(this.x, this.y, isCheater ? 12 : 3.5, 1.5);
             }
         }
 
         function drawObstacles() {
             obstacles.forEach(obs => {
                 ctx.fillStyle = "#111";
-                ctx.strokeStyle = isCheater ? "#ff0000" : "#00ffcc";
+                ctx.strokeStyle = isCheater ? "red" : "#00ffcc";
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 if (obs.type.includes('circle') || (obs.type === 'draw' && obs.shape === 'circle')) {
                     ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI * 2);
-                } else {
+                } else if (obs.type.includes('rect') || (obs.type === 'draw' && obs.shape === 'rect')) {
                     ctx.rect(obs.x - obs.r, obs.y - obs.r, obs.r * 2, obs.r * 2);
+                } else if (obs.type === 'wing') {
+                    ctx.ellipse(obs.x, obs.y, 60, 20, 0, 0, Math.PI * 2);
+                } else if (obs.type === 'supercar') {
+                    ctx.roundRect(obs.x - 65, obs.y - 15, 130, 30, 10);
                 }
                 ctx.fill(); ctx.stroke();
             });
         }
 
         function animate() {
-            ctx.fillStyle = isCheater ? 'rgba(50, 0, 0, 0.2)' : 'rgba(5, 5, 10, 0.3)';
+            ctx.fillStyle = isCheater ? 'rgba(40, 0, 0, 0.3)' : 'rgba(5, 5, 10, 0.3)';
             ctx.fillRect(0, 0, width, height);
             drawObstacles();
             particles.forEach(p => { p.update(); p.draw(); });
@@ -189,10 +204,10 @@
             if (currentMode === 'draw') {
                 if (isStart) {
                     lastX = x; lastY = y;
-                    obstacles.push({ x, y, type: 'draw', r, shape: penShape });
+                    obstacles.push({ x, y, type: 'draw', r, shape: penShape, style: lineStyle });
                 } else if (lastX !== null) {
                     if (Math.hypot(x-lastX, y-lastY) > 6) {
-                        obstacles.push({ x, y, type: 'draw', r, shape: penShape });
+                        obstacles.push({ x, y, type: 'draw', r, shape: penShape, style: lineStyle });
                         lastX = x; lastY = y;
                     }
                 }
@@ -212,21 +227,18 @@
         window.onresize = init;
         init(); animate();
 
-        // --- ANTI-CHEAT LOGIK ---
+        // --- ANTI-CHEAT ---
         const uiElement = document.getElementById('ui');
-        const observer = new MutationObserver(() => {
-            if (!isCheater) triggerCheatMode();
-        });
+        const observer = new MutationObserver(() => { if (!isCheater) triggerCheatMode(); });
         observer.observe(uiElement, { childList: true, subtree: true, characterData: true });
 
         function triggerCheatMode() {
             isCheater = true;
             observer.disconnect();
-            document.body.style.background = "#200";
             uiElement.classList.add('cheat-detected');
-            document.getElementById('appTitle').innerText = "SYSTEM ERROR";
-            windSpeed = 100; // Alles wird weggepustet
-            alert("🚨 ANTI-CHEAT ALARM 🚨\nManipulation entdeckt. Notfall-Modus aktiviert!");
+            document.getElementById('appTitle').innerText = "SYSTEM CRASH";
+            windSpeed = 120;
+            alert("🚨 ANTI-CHEAT ALARM 🚨\nManipulation gestoppt. Windkanal überlastet!");
         }
     </script>
 </body>

@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Complete & Secure</title>
+    <title>Aero Pro - Smooth & Flow</title>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #050505; color: white; overflow: hidden; display: flex; flex-direction: column; transition: background 0.5s; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #050505; color: white; overflow: hidden; display: flex; flex-direction: column; }
         #ui { position: absolute; top: 15px; left: 15px; background: rgba(10, 10, 15, 0.95); padding: 15px; border-radius: 12px; border: 1px solid #444; z-index: 10; width: 240px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
         h3 { margin: 0 0 10px 0; color: #00ffcc; font-size: 14px; text-transform: uppercase; text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
         .section { margin-bottom: 12px; }
@@ -18,7 +18,6 @@
         canvas { display: block; touch-action: none; cursor: crosshair; }
         #penControls.hidden { display: none; }
         .cheat-mode { background: #400 !important; border-color: #f00 !important; }
-        .cheat-mode h3 { color: #f00 !important; }
     </style>
 </head>
 <body>
@@ -140,7 +139,7 @@
                             }
                         }
                     }
-                    if (this.x > obs.x + 10 && this.x < obs.x + 260 && Math.abs(this.y - obs.y) < r*1.6) {
+                    if (this.x > obs.x + 5 && this.x < obs.x + 240 && Math.abs(this.y - obs.y) < r*1.5) {
                         this.turb += 0.12; this.vy += Math.sin(this.x * 0.05 + Date.now()*0.01) * this.turb;
                     }
                 });
@@ -154,7 +153,7 @@
             draw() {
                 let r = Math.min(255, this.turb * 80), g = Math.max(0, 255 - this.turb * 100), b = Math.max(100, 255 - this.turb * 200);
                 ctx.fillStyle = isCheater ? "red" : `rgb(${r},${g},${b})`;
-                ctx.fillRect(this.x, this.y, isCheater ? 8 : 3.5, 1.5);
+                ctx.fillRect(this.x, this.y, 3.5, 1.5);
             }
         }
 
@@ -178,7 +177,7 @@
                     }
                     ctx.closePath(); ctx.fill(); ctx.stroke();
                 } else if (obs.isLine) {
-                    ctx.lineWidth = obs.r*2; ctx.moveTo(obs.x1, obs.y1); ctx.lineTo(obs.x2, obs.y2); ctx.stroke(); ctx.lineWidth = 2;
+                    ctx.lineWidth = obs.r*2; ctx.lineCap = "round"; ctx.moveTo(obs.x1, obs.y1); ctx.lineTo(obs.x2, obs.y2); ctx.stroke(); ctx.lineWidth = 2;
                 } else if (obs.type === 'circle_fixed' || obs.subType === 'circle') {
                     ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
                 } else if (obs.type === 'rect_fixed' || obs.subType === 'rect') {
@@ -210,13 +209,17 @@
                 if (isStart) {
                     lastX = x; lastY = y;
                     if (lineStyle === 'dashed') obstacles.push({ x, y, r, isLine: false, subType: gridShape });
-                } else if (lastX !== null) {
+                } else {
+                    let dist = Math.hypot(x - lastX, y - lastY);
                     if (lineStyle === 'solid') {
-                        obstacles.push({ x1: lastX, y1: lastY, x2: x, y2: y, r: r, isLine: true });
-                    } else if (Math.hypot(x-lastX, y-lastY) > r*2.5) {
+                        if (dist > 2) { // Glatte Linie zeichnen
+                            obstacles.push({ x1: lastX, y1: lastY, x2: x, y2: y, r: r, isLine: true });
+                            lastX = x; lastY = y;
+                        }
+                    } else if (dist > r * 2.2) { // Automatisches Gitter-Sprühen beim Ziehen
                         obstacles.push({ x, y, r, isLine: false, subType: gridShape });
+                        lastX = x; lastY = y;
                     }
-                    lastX = x; lastY = y;
                 }
             } else if (isStart) {
                 obstacles.push({ x, y, r: (currentMode==='wing'?35:r*1.5), type: currentMode, isLine: false });
@@ -225,14 +228,15 @@
 
         canvas.addEventListener('mousedown', e => { isDrawing = true; handleInput(e, true); });
         canvas.addEventListener('mousemove', e => { if (isDrawing) handleInput(e, false); });
-        window.addEventListener('mouseup', () => isDrawing = false);
+        window.addEventListener('mouseup', () => { isDrawing = false; lastX = null; lastY = null; });
         canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing = true; handleInput(e, true); }, {passive:false});
         canvas.addEventListener('touchmove', e => { e.preventDefault(); if(isDrawing) handleInput(e, false); }, {passive:false});
+        canvas.addEventListener('touchend', () => { isDrawing = false; lastX = null; lastY = null; });
+
         document.getElementById('speedRange').oninput = e => { if(!isCheater) windSpeed = parseFloat(e.target.value); };
         function resetSim() { if(!isCheater) obstacles = []; }
         window.onresize = init; init(); animate();
 
-        // 🚨 ANTI-CHEAT 🚨
         const uiBox = document.getElementById('ui');
         const acObserver = new MutationObserver(() => {
             if(!isCheater) { isCheater = true; uiBox.classList.add('cheat-mode'); document.getElementById('appTitle').innerText = "SYSTEM CRASH"; windSpeed = 140; alert("🚨 ANTI-CHEAT ALARM 🚨"); }

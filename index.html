@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Secure Realistic Lab</title>
+    <title>Aero Pro - Complete & Secure</title>
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #050505; color: white; overflow: hidden; display: flex; flex-direction: column; transition: background 0.5s; }
         #ui { position: absolute; top: 15px; left: 15px; background: rgba(10, 10, 15, 0.95); padding: 15px; border-radius: 12px; border: 1px solid #444; z-index: 10; width: 240px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
@@ -16,11 +16,7 @@
         button.active { background: #00ffcc; color: #000; border-color: #00ffcc; font-weight: bold; }
         #resetBtn { background: #cc0000; color: white; border: none; width: 100%; font-weight: bold; margin-top: 5px; cursor: pointer; padding: 10px; border-radius: 4px; }
         canvas { display: block; touch-action: none; cursor: crosshair; }
-        
-        /* UI Verstecken Logik */
         #penControls.hidden { display: none; }
-        
-        /* Anti-Cheat Styling */
         .cheat-mode { background: #400 !important; border-color: #f00 !important; }
         .cheat-mode h3 { color: #f00 !important; }
     </style>
@@ -29,7 +25,6 @@
 
     <div id="ui">
         <h3 id="appTitle">Aero-Secure-Lab</h3>
-        
         <div class="section">
             <label>Werkzeug</label>
             <select id="objectSelect" onchange="updateToolMode(this.value)">
@@ -40,7 +35,6 @@
                 <option value="supercar">🏎️ GT Auto</option>
             </select>
         </div>
-
         <div id="penControls" class="section">
             <label>Stift-Einstellungen</label>
             <input type="range" id="penSize" min="5" max="35" value="15">
@@ -48,13 +42,15 @@
                 <button id="solidBtn" class="active" onclick="setLineStyle('solid')">Voll</button>
                 <button id="dashBtn" onclick="setLineStyle('dashed')">Gitter</button>
             </div>
+            <div id="gridShapes" class="btn-group" style="display:none;">
+                <button id="gridCircle" class="active" onclick="setGridShape('circle')">○</button>
+                <button id="gridRect" onclick="setGridShape('rect')">□</button>
+            </div>
         </div>
-
         <div class="section">
             <label>Windstärke</label>
             <input type="range" id="speedRange" min="3" max="18" step="0.5" value="8">
         </div>
-        
         <button id="resetBtn" onclick="resetSim()">🧹 Kanal leeren</button>
     </div>
 
@@ -63,14 +59,7 @@
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
-        
-        let width, height, particles = [], obstacles = [];
-        let windSpeed = 8;
-        let currentMode = 'draw';
-        let lineStyle = 'solid';
-        let isDrawing = false;
-        let lastX = null, lastY = null;
-        let isCheater = false;
+        let width, height, particles = [], obstacles = [], windSpeed = 8, currentMode = 'draw', lineStyle = 'solid', gridShape = 'circle', isDrawing = false, lastX = null, lastY = null, isCheater = false;
 
         function init() {
             width = canvas.width = window.innerWidth;
@@ -94,6 +83,13 @@
             lineStyle = style;
             document.getElementById('solidBtn').className = (style === 'solid') ? 'active' : '';
             document.getElementById('dashBtn').className = (style === 'dashed') ? 'active' : '';
+            document.getElementById('gridShapes').style.display = (style === 'dashed') ? 'flex' : 'none';
+        }
+
+        function setGridShape(shape) {
+            gridShape = shape;
+            document.getElementById('gridCircle').className = (shape === 'circle') ? 'active' : '';
+            document.getElementById('gridRect').className = (shape === 'rect') ? 'active' : '';
         }
 
         class Particle {
@@ -108,17 +104,12 @@
 
                 obstacles.forEach(obs => {
                     let r = obs.r || 20;
-
                     if (obs.type === 'wing') {
-                        let L = 140;
-                        let relX = (this.x - obs.x) / L + 0.5;
+                        let L = 140, relX = (this.x - obs.x) / L + 0.5;
                         if (relX >= 0 && relX <= 1) {
                             let yt = 12 * 0.12 * (0.2969 * Math.sqrt(relX) - 0.1260 * relX - 0.3516 * relX**2 + 0.2843 * relX**3 - 0.1015 * relX**4) * L;
                             let yc = (relX < 0.4) ? (0.02 / 0.16) * (0.8 * relX - relX**2) * L : (0.02 / 0.36) * (0.2 + 0.8 * relX - relX**2) * L;
-                            let yTop = -yc - yt;
-                            let yBot = -yc + yt;
-
-                            let dy = this.y - obs.y;
+                            let yTop = -yc - yt, yBot = -yc + yt, dy = this.y - obs.y;
                             if (Math.abs(dy - yTop) < 25 || Math.abs(dy - yBot) < 25) {
                                 let slope = (relX < 0.95) ? (yt / (relX * L + 1)) * 0.4 : 0;
                                 targetVy = (dy < 0) ? -slope * windSpeed : slope * windSpeed;
@@ -149,12 +140,8 @@
                             }
                         }
                     }
-
-                    // Heck-Wirbel
-                    let centerX = obs.isLine ? (obs.x1+obs.x2)/2 : obs.x;
-                    if (this.x > centerX + 10 && this.x < centerX + 260 && Math.abs(this.y - obs.y) < r*1.6) {
-                        this.turb += 0.12;
-                        this.vy += Math.sin(this.x * 0.05 + Date.now()*0.01) * this.turb;
+                    if (this.x > obs.x + 10 && this.x < obs.x + 260 && Math.abs(this.y - obs.y) < r*1.6) {
+                        this.turb += 0.12; this.vy += Math.sin(this.x * 0.05 + Date.now()*0.01) * this.turb;
                     }
                 });
 
@@ -192,9 +179,9 @@
                     ctx.closePath(); ctx.fill(); ctx.stroke();
                 } else if (obs.isLine) {
                     ctx.lineWidth = obs.r*2; ctx.moveTo(obs.x1, obs.y1); ctx.lineTo(obs.x2, obs.y2); ctx.stroke(); ctx.lineWidth = 2;
-                } else if (obs.type === 'circle_fixed') {
+                } else if (obs.type === 'circle_fixed' || obs.subType === 'circle') {
                     ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-                } else if (obs.type === 'rect_fixed') {
+                } else if (obs.type === 'rect_fixed' || obs.subType === 'rect') {
                     ctx.rect(obs.x-obs.r, obs.y-obs.r, obs.r*2, obs.r*2); ctx.fill(); ctx.stroke();
                 } else if (obs.type === 'supercar') {
                     ctx.roundRect(obs.x-60, obs.y-18, 120, 30, 10); ctx.fill(); ctx.stroke();
@@ -218,14 +205,22 @@
             const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
             const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
             const r = parseInt(document.getElementById('penSize').value);
+            
             if (currentMode === 'draw') {
-                if (isStart) lastX = x, lastY = y;
-                else if (lastX !== null) {
-                    if (lineStyle === 'solid') obstacles.push({ x1: lastX, y1: lastY, x2: x, y2: y, r: r, isLine: true });
-                    else if (Math.hypot(x-lastX, y-lastY) > r*3.5) obstacles.push({ x, y, r, isLine: false });
-                    lastX = x, lastY = y;
+                if (isStart) {
+                    lastX = x; lastY = y;
+                    if (lineStyle === 'dashed') obstacles.push({ x, y, r, isLine: false, subType: gridShape });
+                } else if (lastX !== null) {
+                    if (lineStyle === 'solid') {
+                        obstacles.push({ x1: lastX, y1: lastY, x2: x, y2: y, r: r, isLine: true });
+                    } else if (Math.hypot(x-lastX, y-lastY) > r*2.5) {
+                        obstacles.push({ x, y, r, isLine: false, subType: gridShape });
+                    }
+                    lastX = x; lastY = y;
                 }
-            } else if (isStart) obstacles.push({ x, y, r: (currentMode==='wing'?35:r*1.5), type: currentMode, isLine: false });
+            } else if (isStart) {
+                obstacles.push({ x, y, r: (currentMode==='wing'?35:r*1.5), type: currentMode, isLine: false });
+            }
         }
 
         canvas.addEventListener('mousedown', e => { isDrawing = true; handleInput(e, true); });
@@ -233,7 +228,6 @@
         window.addEventListener('mouseup', () => isDrawing = false);
         canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing = true; handleInput(e, true); }, {passive:false});
         canvas.addEventListener('touchmove', e => { e.preventDefault(); if(isDrawing) handleInput(e, false); }, {passive:false});
-        
         document.getElementById('speedRange').oninput = e => { if(!isCheater) windSpeed = parseFloat(e.target.value); };
         function resetSim() { if(!isCheater) obstacles = []; }
         window.onresize = init; init(); animate();
@@ -241,13 +235,7 @@
         // 🚨 ANTI-CHEAT 🚨
         const uiBox = document.getElementById('ui');
         const acObserver = new MutationObserver(() => {
-            if(!isCheater) { 
-                isCheater = true; 
-                uiBox.classList.add('cheat-mode'); 
-                document.getElementById('appTitle').innerText = "SYSTEM CRASH"; 
-                windSpeed = 140; 
-                alert("🚨 ANTI-CHEAT ALARM 🚨"); 
-            }
+            if(!isCheater) { isCheater = true; uiBox.classList.add('cheat-mode'); document.getElementById('appTitle').innerText = "SYSTEM CRASH"; windSpeed = 140; alert("🚨 ANTI-CHEAT ALARM 🚨"); }
         });
         acObserver.observe(uiBox, { childList: true, subtree: true, characterData: true });
     </script>

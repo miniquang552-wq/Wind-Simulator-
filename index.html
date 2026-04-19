@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aero Pro - Smooth & Flow</title>
+    <title>Aero Pro - Neal.fun Edition</title>
     <style>
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #050505; color: white; overflow: hidden; display: flex; flex-direction: column; }
         #ui { position: absolute; top: 15px; left: 15px; background: rgba(10, 10, 15, 0.95); padding: 15px; border-radius: 12px; border: 1px solid #444; z-index: 10; width: 240px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
@@ -17,6 +17,7 @@
         #resetBtn { background: #cc0000; color: white; border: none; width: 100%; font-weight: bold; margin-top: 5px; cursor: pointer; padding: 10px; border-radius: 4px; }
         canvas { display: block; touch-action: none; cursor: crosshair; }
         #penControls.hidden { display: none; }
+        .preset-select { background: #002244; border-color: #0066cc; }
         .cheat-mode { background: #400 !important; border-color: #f00 !important; }
     </style>
 </head>
@@ -24,6 +25,17 @@
 
     <div id="ui">
         <h3 id="appTitle">Aero-Secure-Lab</h3>
+        
+        <div class="section">
+            <label>Spaß-Szenarien</label>
+            <select class="preset-select" id="presetSelect" onchange="loadPreset(this.value)">
+                <option value="">-- Lade ein Szenario --</option>
+                <option value="skyline">🏙️ City Skyline</option>
+                <option value="cow">🐄 Kuh-Aerodynamik</option>
+                <option value="wall">🧱 Mauer & Rauch</option>
+            </select>
+        </div>
+
         <div class="section">
             <label>Werkzeug</label>
             <select id="objectSelect" onchange="updateToolMode(this.value)">
@@ -32,8 +44,10 @@
                 <option value="circle_fixed">🌑 Fester Kreis</option>
                 <option value="wing">✈️ NACA Flügel</option>
                 <option value="supercar">🏎️ GT Auto</option>
+                <option value="smoke">💨 Rauch-Düse (Neu)</option>
             </select>
         </div>
+
         <div id="penControls" class="section">
             <label>Stift-Einstellungen</label>
             <input type="range" id="penSize" min="5" max="35" value="15">
@@ -46,6 +60,7 @@
                 <button id="gridRect" onclick="setGridShape('rect')">□</button>
             </div>
         </div>
+
         <div class="section">
             <label>Windstärke</label>
             <input type="range" id="speedRange" min="3" max="18" step="0.5" value="8">
@@ -69,7 +84,7 @@
 
         function spawnColumn(xPos) {
             for (let y = 10; y < height; y += 22) {
-                particles.push(new Particle(xPos, y + (Math.random()*10 - 5)));
+                particles.push(new Particle(xPos, y + (Math.random()*10 - 5), false));
             }
         }
 
@@ -91,17 +106,50 @@
             document.getElementById('gridRect').className = (shape === 'rect') ? 'active' : '';
         }
 
+        function loadPreset(val) {
+            if (isCheater || val === "") return;
+            obstacles = [];
+            let cx = width / 2;
+            let cy = height / 2;
+            
+            // Standard Rauch-Düsen für alle Presets links am Rand
+            let smokeX = 50;
+            for(let y = cy - 200; y <= cy + 200; y += 40) {
+                obstacles.push({x: smokeX, y: y, type: 'smoke'});
+            }
+
+            if (val === 'skyline') {
+                obstacles.push({x: cx - 100, y: height, r: 120, type: 'rect_fixed'});
+                obstacles.push({x: cx + 50, y: height, r: 200, type: 'rect_fixed'});
+                obstacles.push({x: cx + 250, y: height, r: 80, type: 'rect_fixed'});
+            } else if (val === 'cow') {
+                // Körperteile einer Kuh aus Kreisen
+                obstacles.push({x: cx, y: cy, r: 60, type: 'circle_fixed'}); // Bauch
+                obstacles.push({x: cx - 50, y: cy - 20, r: 40, type: 'circle_fixed'}); // Brust
+                obstacles.push({x: cx + 50, y: cy, r: 45, type: 'circle_fixed'}); // Hinterteil
+                obstacles.push({x: cx - 80, y: cy - 60, r: 25, type: 'circle_fixed'}); // Kopf
+                obstacles.push({x: cx - 40, y: cy + 50, r: 15, type: 'rect_fixed'}); // Bein vorne
+                obstacles.push({x: cx + 40, y: cy + 50, r: 15, type: 'rect_fixed'}); // Bein hinten
+            } else if (val === 'wall') {
+                obstacles.push({x: cx, y: cy, r: 150, type: 'rect_fixed'});
+            }
+            document.getElementById('presetSelect').value = ""; // Dropdown zurücksetzen
+        }
+
         class Particle {
-            constructor(x, y) {
+            constructor(x, y, isSmoke) {
                 this.x = x; this.y = y; this.baseY = y;
                 this.vx = windSpeed; this.vy = 0;
                 this.turb = 0; this.active = true;
+                this.isSmoke = isSmoke;
             }
             update() {
                 let targetVx = windSpeed;
                 let targetVy = (this.baseY - this.y) * 0.05;
 
                 obstacles.forEach(obs => {
+                    if (obs.type === 'smoke') return; // Rauchdüsen kollidieren nicht mit der Luft
+                    
                     let r = obs.r || 20;
                     if (obs.type === 'wing') {
                         let L = 140, relX = (this.x - obs.x) / L + 0.5;
@@ -148,20 +196,31 @@
                 this.vy += (targetVy - this.vy) * 0.1;
                 this.x += this.vx; this.y += this.vy;
                 this.turb *= 0.93;
-                if (this.x > width + 20) this.active = false;
+                if (this.x > width + 20 || this.y < -50 || this.y > height + 50) this.active = false;
             }
             draw() {
-                let r = Math.min(255, this.turb * 80), g = Math.max(0, 255 - this.turb * 100), b = Math.max(100, 255 - this.turb * 200);
-                ctx.fillStyle = isCheater ? "red" : `rgb(${r},${g},${b})`;
-                ctx.fillRect(this.x, this.y, 3.5, 1.5);
+                if (this.isSmoke) {
+                    ctx.fillStyle = "#00ffcc"; 
+                    ctx.fillRect(this.x, this.y, 4, 4);
+                } else {
+                    let r = Math.min(255, this.turb * 80), g = Math.max(0, 255 - this.turb * 100), b = Math.max(100, 255 - this.turb * 200);
+                    ctx.fillStyle = isCheater ? "red" : `rgb(${r},${g},${b})`;
+                    ctx.fillRect(this.x, this.y, 3.5, 1.5);
+                }
             }
         }
 
         function drawElements() {
-            ctx.fillStyle = "#111"; ctx.strokeStyle = isCheater ? "red" : "#00ffcc"; ctx.lineWidth = 2;
+            ctx.fillStyle = "#111"; ctx.strokeStyle = isCheater ? "red" : "#888"; ctx.lineWidth = 2;
             obstacles.forEach(obs => {
                 ctx.beginPath();
-                if (obs.type === 'wing') {
+                if (obs.type === 'smoke') {
+                    ctx.fillStyle = "#00ffcc";
+                    ctx.arc(obs.x, obs.y, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = "#111"; 
+                    if(Math.random() > 0.4) particles.push(new Particle(obs.x, obs.y, true));
+                } else if (obs.type === 'wing') {
+                    ctx.strokeStyle = "#00ffcc";
                     let L = 140;
                     for (let i = 0; i <= 40; i++) {
                         let rx = i / 40;
@@ -183,6 +242,7 @@
                 } else if (obs.type === 'rect_fixed' || obs.subType === 'rect') {
                     ctx.rect(obs.x-obs.r, obs.y-obs.r, obs.r*2, obs.r*2); ctx.fill(); ctx.stroke();
                 } else if (obs.type === 'supercar') {
+                    ctx.strokeStyle = "#00ffcc";
                     ctx.roundRect(obs.x-60, obs.y-18, 120, 30, 10); ctx.fill(); ctx.stroke();
                 }
             });
@@ -212,17 +272,21 @@
                 } else {
                     let dist = Math.hypot(x - lastX, y - lastY);
                     if (lineStyle === 'solid') {
-                        if (dist > 2) { // Glatte Linie zeichnen
+                        if (dist > 2) { 
                             obstacles.push({ x1: lastX, y1: lastY, x2: x, y2: y, r: r, isLine: true });
                             lastX = x; lastY = y;
                         }
-                    } else if (dist > r * 2.2) { // Automatisches Gitter-Sprühen beim Ziehen
+                    } else if (dist > r * 2.2) { 
                         obstacles.push({ x, y, r, isLine: false, subType: gridShape });
                         lastX = x; lastY = y;
                     }
                 }
             } else if (isStart) {
-                obstacles.push({ x, y, r: (currentMode==='wing'?35:r*1.5), type: currentMode, isLine: false });
+                if(currentMode === 'smoke') {
+                    obstacles.push({ x, y, type: 'smoke' });
+                } else {
+                    obstacles.push({ x, y, r: (currentMode==='wing'?35:r*1.5), type: currentMode, isLine: false });
+                }
             }
         }
 

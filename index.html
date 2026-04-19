@@ -2,42 +2,50 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Physics Sandbox - Neal.fun Style</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Physics Sandbox Pro</title>
     <style>
         :root { --accent: #00ffcc; --bg: #050505; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; overflow: hidden; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* HAUPTMENÜ STYLE */
+        /* --- HAUPTMENÜ --- */
         #main-menu {
             position: absolute; width: 100%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: radial-gradient(circle, #111 0%, #050505 100%);
             z-index: 100; transition: 0.5s;
         }
-        .menu-title { font-size: 48px; color: var(--accent); margin-bottom: 40px; text-transform: uppercase; letter-spacing: 5px; }
-        .grid { display: grid; grid-template-columns: repeat(2, 200px); gap: 20px; }
+        .menu-title { font-size: 42px; color: var(--accent); margin-bottom: 40px; text-transform: uppercase; letter-spacing: 5px; text-align: center; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; max-width: 500px; }
         .card {
-            background: #1a1a1a; border: 2px solid #333; padding: 20px; border-radius: 15px;
+            background: #1a1a1a; border: 2px solid #333; padding: 25px; border-radius: 15px;
             text-align: center; cursor: pointer; transition: 0.3s;
         }
         .card:hover { border-color: var(--accent); transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,255,204,0.2); }
-        .card i { font-size: 40px; display: block; margin-bottom: 10px; }
+        .card i { font-size: 40px; display: block; margin-bottom: 10px; font-style: normal; }
 
-        /* SIMULATION UI */
-        #game-container { display: none; width: 100%; height: 100%; }
-        #ui-layer { 
-            position: absolute; top: 15px; left: 15px; 
-            background: rgba(10, 10, 15, 0.9); padding: 15px; 
-            border-radius: 12px; border: 1px solid #444; z-index: 10;
+        /* --- SIMULATION UI --- */
+        #game-container { display: none; width: 100%; height: 100%; position: relative; }
+        #ui { 
+            position: absolute; top: 15px; left: 15px; background: rgba(10, 10, 15, 0.95); 
+            padding: 15px; border-radius: 12px; border: 1px solid #444; z-index: 10; 
+            width: 240px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); 
         }
-        .back-btn { 
-            background: #333; color: white; border: none; padding: 8px 15px; 
-            border-radius: 5px; cursor: pointer; margin-bottom: 10px; width: 100%;
-        }
+        .back-btn { background: #333; color: #fff; border: 1px solid #555; padding: 8px; border-radius: 6px; cursor: pointer; width: 100%; margin-bottom: 15px; font-size: 12px; }
         .back-btn:hover { background: #444; }
         
-        canvas { display: block; }
+        h3 { margin: 0 0 10px 0; color: var(--accent); font-size: 14px; text-transform: uppercase; text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .section { margin-bottom: 12px; }
+        label { display: block; font-size: 10px; color: #aaa; margin-bottom: 4px; text-transform: uppercase; }
+        select, input[type="range"] { width: 100%; margin-bottom: 8px; background: #111; color: white; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 12px; outline: none; }
+        .btn-group { display: flex; gap: 4px; margin-bottom: 8px; }
+        button.tool-btn { flex: 1; background: #222; color: white; border: 1px solid #444; padding: 7px; border-radius: 4px; cursor: pointer; font-size: 10px; }
+        button.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: bold; }
+        #resetBtn { background: #cc0000; color: white; border: none; width: 100%; font-weight: bold; padding: 10px; border-radius: 4px; cursor: pointer; }
+        
+        canvas { display: block; touch-action: none; cursor: crosshair; }
         .hidden { display: none !important; }
+        .cheat-mode { background: #400 !important; border-color: #f00 !important; }
     </style>
 </head>
 <body>
@@ -47,103 +55,279 @@
         <div class="grid">
             <div class="card" onclick="startGame('wind')">
                 <i>🌬️</i>
-                <span>Windkanal</span>
+                <span>Windtunnel Sim</span>
             </div>
             <div class="card" onclick="startGame('water')">
                 <i>🌊</i>
-                <span>Wasser-Becken</span>
+                <span>Water Sandbox</span>
             </div>
         </div>
     </div>
 
     <div id="game-container">
-        <div id="ui-layer">
-            <button class="back-btn" onclick="backToMenu()">⬅ Zurück zum Menü</button>
-            <h3 id="current-mode-title">Modus</h3>
-            <div id="controls">
-                <input type="range" id="speedRange" min="1" max="20" value="8">
-                <label style="font-size: 10px;">GESCHWINDIGKEIT</label>
+        <div id="ui">
+            <button class="back-btn" onclick="backToMenu()">⬅ Hauptmenü</button>
+            <h3 id="appTitle">Aero-Secure-Lab</h3>
+            
+            <div id="wind-only-controls">
+                <div class="section">
+                    <label>Spaß-Szenarien</label>
+                    <select id="presetSelect" onchange="loadPreset(this.value)">
+                        <option value="">-- Szenario wählen --</option>
+                        <option value="skyline">🏙️ Skyline</option>
+                        <option value="cow">🐄 Kuh</option>
+                        <option value="wall">🧱 Mauer</option>
+                    </select>
+                </div>
             </div>
+
+            <div class="section">
+                <label>Werkzeug</label>
+                <select id="objectSelect" onchange="updateToolMode(this.value)">
+                    <option value="draw">✏️ Freihand Stift</option>
+                    <option value="rect_fixed">⬛ Festes Quadrat</option>
+                    <option value="circle_fixed">🌑 Fester Kreis</option>
+                    <option value="wing">✈️ NACA Flügel</option>
+                    <option value="smoke">💨 Rauch-Düse</option>
+                </select>
+            </div>
+
+            <div id="penControls" class="section">
+                <label>Stift-Einstellungen</label>
+                <input type="range" id="penSize" min="5" max="35" value="15">
+                <div class="btn-group">
+                    <button id="solidBtn" class="tool-btn active" onclick="setLineStyle('solid')">Voll</button>
+                    <button id="dashBtn" class="tool-btn" onclick="setLineStyle('dashed')">Gitter</button>
+                </div>
+                <div id="gridShapes" class="btn-group" style="display:none;">
+                    <button id="gridCircle" class="tool-btn active" onclick="setGridShape('circle')">○</button>
+                    <button id="gridRect" class="tool-btn" onclick="setGridShape('rect')">□</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <label>Umgebungs-Kraft</label>
+                <input type="range" id="speedRange" min="2" max="20" step="0.5" value="8">
+            </div>
+            <button id="resetBtn" onclick="resetSim()">🧹 Kanal leeren</button>
         </div>
         <canvas id="simCanvas"></canvas>
     </div>
 
     <script>
-        const menu = document.getElementById('main-menu');
-        const container = document.getElementById('game-container');
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
-        const title = document.getElementById('current-mode-title');
-        
+        let width, height, particles = [], obstacles = [], windSpeed = 8;
+        let currentMode = 'draw', lineStyle = 'solid', gridShape = 'circle';
+        let isDrawing = false, lastX = null, lastY = null, isCheater = false;
         let activeGame = null;
-        let particles = [];
-        let width, height;
-        let windSpeed = 8;
 
-        // GAME LOGIC SELECTION
         function startGame(mode) {
-            menu.classList.add('hidden');
-            container.style.display = 'block';
             activeGame = mode;
-            title.innerText = mode === 'wind' ? "🌬️ Windkanal" : "🌊 Wasser-Becken";
-            initCanvas();
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('game-container').style.display = 'block';
+            document.getElementById('wind-only-controls').style.display = (mode === 'wind') ? 'block' : 'none';
+            init();
         }
 
         function backToMenu() {
-            menu.classList.remove('hidden');
-            container.style.display = 'none';
             activeGame = null;
+            document.getElementById('main-menu').classList.remove('hidden');
+            document.getElementById('game-container').style.display = 'none';
+            obstacles = [];
             particles = [];
         }
 
-        function initCanvas() {
+        function init() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             particles = [];
-            // Start-Partikel erzeugen
-            for(let i=0; i < (activeGame === 'wind' ? 100 : 300); i++) {
-                particles.push(new Particle());
+            if(activeGame === 'wind') {
+                for(let i=0; i<width; i+=25) spawnColumn(i);
+            } else {
+                for(let i=0; i<400; i++) particles.push(new Particle(Math.random()*width, Math.random()*height, false));
             }
         }
 
+        function spawnColumn(xPos) {
+            for (let y = 10; y < height; y += 22) {
+                particles.push(new Particle(xPos, y + (Math.random()*10 - 5), false));
+            }
+        }
+
+        function updateToolMode(mode) {
+            currentMode = mode;
+            document.getElementById('penControls').className = (mode === 'draw') ? 'section' : 'section hidden';
+        }
+
+        function setLineStyle(style) {
+            lineStyle = style;
+            document.getElementById('solidBtn').classList.toggle('active', style === 'solid');
+            document.getElementById('dashBtn').classList.toggle('active', style === 'dashed');
+            document.getElementById('gridShapes').style.display = (style === 'dashed') ? 'flex' : 'none';
+        }
+
+        function setGridShape(shape) {
+            gridShape = shape;
+            document.getElementById('gridCircle').classList.toggle('active', shape === 'circle');
+            document.getElementById('gridRect').classList.toggle('active', shape === 'rect');
+        }
+
         class Particle {
-            constructor() { this.reset(); }
-            reset() {
-                this.x = Math.random() * width;
-                this.y = Math.random() * height;
-                this.vx = activeGame === 'wind' ? windSpeed : (Math.random() - 0.5) * 2;
-                this.vy = activeGame === 'water' ? (Math.random() - 1) * 2 : 0; // Im Wasser leichtes Steigen
+            constructor(x, y, isSmoke) {
+                this.x = x; this.y = y; this.baseY = y;
+                this.vx = windSpeed; this.vy = 0;
+                this.turb = 0; this.active = true; this.isSmoke = isSmoke;
             }
             update() {
-                if (activeGame === 'wind') {
-                    this.x += windSpeed;
-                    if (this.x > width) this.x = 0;
-                } else if (activeGame === 'water') {
-                    // Wasser-Physik: Wellenartige Bewegung
-                    this.x += Math.sin(this.y * 0.01 + Date.now() * 0.002) * 2;
-                    this.y += this.vy;
-                    if (this.y < 0) this.y = height;
-                }
+                let targetVx = (activeGame === 'wind') ? windSpeed : (Math.sin(Date.now()*0.001 + this.y*0.01)*2);
+                let targetVy = (activeGame === 'wind') ? (this.baseY - this.y) * 0.05 : -0.5;
+
+                obstacles.forEach(obs => {
+                    if (obs.type === 'smoke') return;
+                    let r = obs.r || 20;
+                    let dx = this.x - obs.x, dy = this.y - obs.y, dist = Math.hypot(dx, dy);
+
+                    if (obs.type === 'wing' && activeGame === 'wind') {
+                        let L = 140, relX = (this.x - obs.x) / L + 0.5;
+                        if (relX >= 0 && relX <= 1) {
+                            let yt = 12 * 0.12 * (0.2969 * Math.sqrt(relX) - 0.1260 * relX - 0.3516 * relX**2 + 0.2843 * relX**3 - 0.1015 * relX**4) * L;
+                            let yc = (relX < 0.4) ? (0.02 / 0.16) * (0.8 * relX - relX**2) * L : (0.02 / 0.36) * (0.2 + 0.8 * relX - relX**2) * L;
+                            let yTop = -yc - yt, yBot = -yc + yt, pdy = this.y - obs.y;
+                            if (Math.abs(pdy - yTop) < 25 || Math.abs(pdy - yBot) < 25) {
+                                let slope = (relX < 0.95) ? (yt / (relX * L + 1)) * 0.4 : 0;
+                                targetVy = (pdy < 0) ? -slope * windSpeed : slope * windSpeed;
+                                this.turb += 0.06;
+                                if (pdy > yTop && pdy < yBot) this.y = obs.y + (pdy < 0 ? yTop - 2 : yBot + 2);
+                            }
+                        }
+                    } else if (obs.isLine) {
+                        let l2 = (obs.x2-obs.x1)**2 + (obs.y2-obs.y1)**2;
+                        let t = Math.max(0, Math.min(1, ((this.x-obs.x1)*(obs.x2-obs.x1) + (this.y-obs.y1)*(obs.y2-obs.y1))/l2));
+                        let px = obs.x1 + t*(obs.x2-obs.x1), py = obs.y1 + t*(obs.y2-obs.y1);
+                        let dLine = Math.hypot(this.x - px, this.y - py);
+                        if (dLine < r) {
+                            let ang = Math.atan2(this.y - py, this.x - px);
+                            this.x = px + Math.cos(ang) * r; this.y = py + Math.sin(ang) * r;
+                            this.vx *= 0.5; this.turb += 1.2;
+                        }
+                    } else if (dist < r) {
+                        let ang = Math.atan2(dy, dx);
+                        this.x = obs.x + Math.cos(ang) * r; this.y = obs.y + Math.sin(ang) * r;
+                        this.turb += 1.2;
+                    }
+                });
+
+                this.vx += (targetVx - this.vx) * 0.1;
+                this.vy += (targetVy - this.vy) * 0.1;
+                this.x += this.vx; this.y += this.vy;
+                this.turb *= 0.93;
+
+                if (activeGame === 'wind' && this.x > width + 20) this.active = false;
+                if (activeGame === 'water' && this.y < -10) this.y = height + 10;
             }
             draw() {
-                ctx.fillStyle = activeGame === 'wind' ? '#00ffcc' : '#00aaff';
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, activeGame === 'wind' ? 1.5 : 3, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillStyle = this.isSmoke ? "#00ffcc" : (activeGame === 'wind' ? `rgb(${this.turb*80},${255-this.turb*100},255)` : "#00aaff");
+                ctx.fillRect(this.x, this.y, this.isSmoke ? 4 : 3, this.isSmoke ? 4 : 1.5);
             }
         }
 
         function animate() {
             if (activeGame) {
-                ctx.fillStyle = activeGame === 'wind' ? 'rgba(5,5,5,0.2)' : 'rgba(0,20,40,0.3)';
+                ctx.fillStyle = isCheater ? "rgba(60,0,0,0.3)" : (activeGame === 'wind' ? "rgba(5,5,10,0.3)" : "rgba(0,10,20,0.4)");
                 ctx.fillRect(0, 0, width, height);
-                particles.forEach(p => { p.update(); p.draw(); });
+                
+                if(activeGame === 'wind') {
+                    spawnAcc += windSpeed; 
+                    if(spawnAcc > 30) { spawnColumn(-20); spawnAcc = 0; }
+                }
+
+                obstacles.forEach(obs => {
+                    ctx.fillStyle = "#111"; ctx.strokeStyle = isCheater ? "red" : (obs.type==='smoke'?"#00ffcc":"#888"); ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    if(obs.type === 'smoke') {
+                        ctx.arc(obs.x, obs.y, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                        if(Math.random() > 0.4) particles.push(new Particle(obs.x, obs.y, true));
+                    } else if(obs.type === 'wing') {
+                        // NACA Profil Zeichnung (wie früher)
+                        let L = 140; ctx.strokeStyle = "#00ffcc";
+                        for (let i = 0; i <= 40; i++) {
+                            let rx = i / 40;
+                            let yt = 12 * 0.12 * (0.2969 * Math.sqrt(rx) - 0.1260 * rx - 0.3516 * rx**2 + 0.2843 * rx**3 - 0.1015 * rx**4) * L;
+                            let yc = (rx < 0.4) ? (0.02 / 0.16) * (0.8 * rx - rx**2) * L : (0.02 / 0.36) * (0.2 + 0.8 * rx - rx**2) * L;
+                            i === 0 ? ctx.moveTo(obs.x + (rx-0.5)*L, obs.y-yc-yt) : ctx.lineTo(obs.x + (rx-0.5)*L, obs.y-yc-yt);
+                        }
+                        for (let i = 40; i >= 0; i--) {
+                            let rx = i / 40;
+                            let yt = 12 * 0.12 * (0.2969 * Math.sqrt(rx) - 0.1260 * rx - 0.3516 * rx**2 + 0.2843 * rx**3 - 0.1015 * rx**4) * L;
+                            let yc = (rx < 0.4) ? (0.02 / 0.16) * (0.8 * rx - rx**2) * L : (0.02 / 0.36) * (0.2 + 0.8 * rx - rx**2) * L;
+                            ctx.lineTo(obs.x + (rx-0.5)*L, obs.y-yc+yt);
+                        }
+                        ctx.closePath(); ctx.fill(); ctx.stroke();
+                    } else if (obs.isLine) {
+                        ctx.lineWidth = obs.r*2; ctx.lineCap = "round"; ctx.moveTo(obs.x1, obs.y1); ctx.lineTo(obs.x2, obs.y2); ctx.stroke();
+                    } else if (obs.type === 'rect_fixed' || obs.subType === 'rect') {
+                        ctx.rect(obs.x-obs.r, obs.y-obs.r, obs.r*2, obs.r*2); ctx.fill(); ctx.stroke();
+                    } else {
+                        ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    }
+                });
+
+                particles = particles.filter(p => { p.update(); p.draw(); return p.active; });
             }
             requestAnimationFrame(animate);
         }
 
-        window.addEventListener('resize', initCanvas);
-        document.getElementById('speedRange').oninput = (e) => windSpeed = parseInt(e.target.value);
+        let spawnAcc = 0;
+        // Input Handling
+        function handleInput(e, isStart) {
+            if (isCheater) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+            const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+            const r = parseInt(document.getElementById('penSize').value);
+            
+            if (currentMode === 'draw') {
+                if (isStart) {
+                    lastX = x; lastY = y;
+                    if (lineStyle === 'dashed') obstacles.push({ x, y, r, isLine: false, subType: gridShape });
+                } else if (lastX !== null) {
+                    let dist = Math.hypot(x - lastX, y - lastY);
+                    if (lineStyle === 'solid' && dist > 2) {
+                        obstacles.push({ x1: lastX, y1: lastY, x2: x, y2: y, r: r, isLine: true });
+                        lastX = x; lastY = y;
+                    } else if (lineStyle === 'dashed' && dist > r*2.2) {
+                        obstacles.push({ x, y, r, isLine: false, subType: gridShape });
+                        lastX = x; lastY = y;
+                    }
+                }
+            } else if (isStart) {
+                obstacles.push({ x, y, r: (currentMode==='wing'?35:r*1.5), type: currentMode, isLine: false });
+            }
+        }
+
+        canvas.addEventListener('mousedown', e => { isDrawing = true; handleInput(e, true); });
+        canvas.addEventListener('mousemove', e => { if (isDrawing) handleInput(e, false); });
+        window.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing = true; handleInput(e, true); }, {passive:false});
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); if(isDrawing) handleInput(e, false); }, {passive:false});
+
+        function loadPreset(val) {
+            obstacles = []; let cx = width/2, cy = height/2;
+            for(let y = cy-150; y<=cy+150; y+=50) obstacles.push({x: 50, y: y, type: 'smoke'});
+            if(val === 'skyline') obstacles.push({x:cx, y:height, r:150, type:'rect_fixed'});
+            if(val === 'cow') obstacles.push({x:cx, y:cy, r:50, type:'circle_fixed'});
+            if(val === 'wall') obstacles.push({x:cx, y:cy, r:120, type:'rect_fixed'});
+        }
+
+        document.getElementById('speedRange').oninput = e => windSpeed = parseFloat(e.target.value);
+        function resetSim() { obstacles = []; }
+        window.onresize = init;
+        
+        // Anti-Cheat
+        new MutationObserver(() => {
+            if(!isCheater) { isCheater = true; document.getElementById('ui').classList.add('cheat-mode'); windSpeed = 100; alert("🚨 SYSTEM PROTECTED 🚨"); }
+        }).observe(document.getElementById('ui'), { childList: true, subtree: true, characterData: true });
 
         animate();
     </script>

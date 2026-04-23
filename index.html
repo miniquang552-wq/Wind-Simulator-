@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Physics Sandbox Pro</title>
+    <title>Physics Sandbox Pro - Complete & Realistic</title>
     <style>
-        :root { --accent: #00ffcc; --bg: #050505; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; overflow: hidden; display: flex; flex-direction: column; }
+        :root { --accent: #00ffcc; --bg: #050505; --water-accent: #00aaff; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; overflow: hidden; display: flex; flex-direction: column; transition: background 0.5s; }
         
         /* --- HAUPTMENÜ --- */
         #main-menu {
@@ -35,12 +35,16 @@
         .back-btn:hover { background: #444; }
         
         h3 { margin: 0 0 10px 0; color: var(--accent); font-size: 14px; text-transform: uppercase; text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        h3.water-title { color: var(--water-accent) !important; }
+
         .section { margin-bottom: 12px; }
         label { display: block; font-size: 10px; color: #aaa; margin-bottom: 4px; text-transform: uppercase; }
         select, input[type="range"] { width: 100%; margin-bottom: 8px; background: #111; color: white; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 12px; outline: none; }
         .btn-group { display: flex; gap: 4px; margin-bottom: 8px; }
         button.tool-btn { flex: 1; background: #222; color: white; border: 1px solid #444; padding: 7px; border-radius: 4px; cursor: pointer; font-size: 10px; }
         button.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: bold; }
+        button.water-active { background: var(--water-accent) !important; color: #000 !important; border-color: var(--water-accent) !important; font-weight: bold !important; }
+        
         #resetBtn { background: #cc0000; color: white; border: none; width: 100%; font-weight: bold; padding: 10px; border-radius: 4px; cursor: pointer; }
         
         canvas { display: block; touch-action: none; cursor: crosshair; }
@@ -51,7 +55,7 @@
 <body>
 
     <div id="main-menu">
-        <h1 class="menu-title">Physics Lab</h1>
+        <h1 class="menu-title">Physics Lab Pro</h1>
         <div class="grid">
             <div class="card" onclick="startGame('wind')">
                 <i>🌬️</i>
@@ -67,7 +71,7 @@
     <div id="game-container">
         <div id="ui">
             <button class="back-btn" onclick="backToMenu()">⬅ Hauptmenü</button>
-            <h3 id="appTitle">Aero-Secure-Lab</h3>
+            <h3 id="appTitle">Physik-Labor</h3>
             
             <div id="wind-only-controls">
                 <div class="section">
@@ -82,13 +86,15 @@
             </div>
 
             <div class="section">
-                <label>Werkzeug</label>
+                <label id="toolLabel">Werkzeug</label>
                 <select id="objectSelect" onchange="updateToolMode(this.value)">
                     <option value="draw">✏️ Freihand Stift</option>
                     <option value="rect_fixed">⬛ Festes Quadrat</option>
                     <option value="circle_fixed">🌑 Fester Kreis</option>
-                    <option value="wing">✈️ NACA Flügel</option>
-                    <option value="smoke">💨 Rauch-Düse</option>
+                    <option id="wingOpt" value="wing">✈️ NACA Flügel</option>
+                    <option id="smokeOpt" value="smoke">💨 Rauch-Düse</option>
+                    <option id="ballOpt" value="ball" class="hidden">⚽ Ball (Schwimmt)</option>
+                    <option id="sinkOpt" value="sinking_ball" class="hidden">⚓ Stein (Sinkt)</option>
                 </select>
             </div>
 
@@ -106,7 +112,7 @@
             </div>
 
             <div class="section">
-                <label>Umgebungs-Kraft</label>
+                <label id="forceLabel">Windstärke</label>
                 <input type="range" id="speedRange" min="2" max="20" step="0.5" value="8">
             </div>
             <button id="resetBtn" onclick="resetSim()">🧹 Kanal leeren</button>
@@ -117,8 +123,8 @@
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
-        let width, height, particles = [], obstacles = [], windSpeed = 8;
-        let currentMode = 'draw', lineStyle = 'solid', gridShape = 'circle';
+        let width, height, particles = [], obstacles = [], floatingObjects = [], windSpeed = 8, fluidDensity = 1;
+        let currentMode = 'draw', lineStyle = 'solid', gridShape = 'circle', spawnAcc = 0;
         let isDrawing = false, lastX = null, lastY = null, isCheater = false;
         let activeGame = null;
 
@@ -126,7 +132,25 @@
             activeGame = mode;
             document.getElementById('main-menu').classList.add('hidden');
             document.getElementById('game-container').style.display = 'block';
+            obstacles = []; particles = []; floatingObjects = [];
+            
+            // UI Anpassung
+            const appTitle = document.getElementById('appTitle');
+            const toolSelect = document.getElementById('objectSelect');
+            appTitle.innerText = mode === 'wind' ? "Aero-Secure-Lab" : "Realistic Water";
+            appTitle.className = mode === 'wind' ? "" : "water-title";
+            document.getElementById('toolLabel').innerText = mode === 'wind' ? "Luft-Werkzeug" : "Wasser-Werkzeug";
+            document.getElementById('forceLabel').innerText = mode === 'wind' ? "Windstärke" : "Wellen-Kraft";
+            
+            // Werkzeug-Optionen anpassen
             document.getElementById('wind-only-controls').style.display = (mode === 'wind') ? 'block' : 'none';
+            document.getElementById('wingOpt').className = (mode === 'wind') ? "" : "hidden";
+            document.getElementById('smokeOpt').className = (mode === 'wind') ? "" : "hidden";
+            document.getElementById('ballOpt').className = (mode === 'water') ? "" : "hidden";
+            document.getElementById('sinkOpt').className = (mode === 'water') ? "" : "hidden";
+            
+            toolSelect.value = "draw"; updateToolMode("draw");
+            
             init();
         }
 
@@ -134,18 +158,19 @@
             activeGame = null;
             document.getElementById('main-menu').classList.remove('hidden');
             document.getElementById('game-container').style.display = 'none';
-            obstacles = [];
-            particles = [];
+            obstacles = []; particles = []; floatingObjects = [];
         }
 
         function init() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
-            particles = [];
             if(activeGame === 'wind') {
                 for(let i=0; i<width; i+=25) spawnColumn(i);
             } else {
                 for(let i=0; i<400; i++) particles.push(new Particle(Math.random()*width, Math.random()*height, false));
+                // Startobjekte im Wasser
+                floatingObjects.push(new FloatingObject(width*0.2, height*0.3, 40, 'ball', 0.4)); // Kork
+                floatingObjects.push(new FloatingObject(width*0.7, height*0.8, 30, 'sinking_ball', 3.0)); // Stein
             }
         }
 
@@ -162,15 +187,17 @@
 
         function setLineStyle(style) {
             lineStyle = style;
-            document.getElementById('solidBtn').classList.toggle('active', style === 'solid');
-            document.getElementById('dashBtn').classList.toggle('active', style === 'dashed');
+            const activeClass = activeGame === 'wind' ? 'active' : 'water-active';
+            document.getElementById('solidBtn').className = (style === 'solid') ? 'tool-btn ' + activeClass : 'tool-btn';
+            document.getElementById('dashBtn').className = (style === 'dashed') ? 'tool-btn ' + activeClass : 'tool-btn';
             document.getElementById('gridShapes').style.display = (style === 'dashed') ? 'flex' : 'none';
         }
 
         function setGridShape(shape) {
             gridShape = shape;
-            document.getElementById('gridCircle').classList.toggle('active', shape === 'circle');
-            document.getElementById('gridRect').classList.toggle('active', shape === 'rect');
+            const activeClass = activeGame === 'wind' ? 'active' : 'water-active';
+            document.getElementById('gridCircle').className = (shape === 'circle') ? 'tool-btn ' + activeClass : 'tool-btn';
+            document.getElementById('gridRect').className = (shape === 'rect') ? 'tool-btn ' + activeClass : 'tool-btn';
         }
 
         class Particle {
@@ -180,8 +207,8 @@
                 this.turb = 0; this.active = true; this.isSmoke = isSmoke;
             }
             update() {
-                let targetVx = (activeGame === 'wind') ? windSpeed : (Math.sin(Date.now()*0.001 + this.y*0.01)*2);
-                let targetVy = (activeGame === 'wind') ? (this.baseY - this.y) * 0.05 : -0.5;
+                let targetVx = (activeGame === 'wind') ? windSpeed : (Math.sin(Date.now()*0.001 + this.y*0.015)*2.5);
+                let targetVy = (activeGame === 'wind') ? (this.baseY - this.y) * 0.05 : -0.7;
 
                 obstacles.forEach(obs => {
                     if (obs.type === 'smoke') return;
@@ -227,8 +254,71 @@
                 if (activeGame === 'water' && this.y < -10) this.y = height + 10;
             }
             draw() {
-                ctx.fillStyle = this.isSmoke ? "#00ffcc" : (activeGame === 'wind' ? `rgb(${this.turb*80},${255-this.turb*100},255)` : "#00aaff");
-                ctx.fillRect(this.x, this.y, this.isSmoke ? 4 : 3, this.isSmoke ? 4 : 1.5);
+                ctx.fillStyle = this.isSmoke ? "#00ffcc" : (activeGame === 'wind' ? `rgb(${this.turb*80},${255-this.turb*100},255)` : "rgba(0,170,255,0.8)");
+                ctx.fillRect(this.x, this.y, this.isSmoke ? 4 : (activeGame==='wind'?3:2), this.isSmoke ? 4 : (activeGame==='wind'?1.5:2));
+            }
+        }
+
+        // --- REALISTISCHE WASSER-PHYSIK ---
+        class FloatingObject {
+            constructor(x, y, r, type, density) {
+                this.x = x; this.y = y; this.r = r;
+                this.vx = (Math.random() - 0.5) * 4; this.vy = (Math.random() - 0.5) * 4;
+                this.type = type;
+                this.density = density; // Dichte (0.1 - 10, < 1 schwimmt, > 1 sinkt)
+                this.area = r * r; // Angenäherte Fläche
+            }
+            update() {
+                const gravity = 0.5;
+                const waterDensity = 1.0;
+                
+                // Schwerkraft
+                this.vy += gravity * this.density;
+                
+                // Auftrieb im Wasser
+                let volumeSubmerged = this.area; // Wir nehmen an, es ist voll unter Wasser
+                this.vy -= (waterDensity * volumeSubmerged * gravity) / this.area;
+                
+                // Reibung im Wasser (Zähigkeit)
+                const drag = activeGame === 'water' ? 0.04 : 0.01;
+                this.vx -= this.vx * drag;
+                this.vy -= this.vy * drag;
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // Kollisionen mit statischen Hindernissen (Stift-Zeichnungen)
+                obstacles.forEach(obs => {
+                    if(obs.type === 'smoke' || obs.type === 'wing') return;
+                    let dr = (obs.r || 20) + this.r;
+                    if(obs.isLine) {
+                        let l2 = (obs.x2-obs.x1)**2 + (obs.y2-obs.y1)**2;
+                        let t = Math.max(0, Math.min(1, ((this.x-obs.x1)*(obs.x2-obs.x1) + (this.y-obs.y1)*(obs.y2-obs.y1))/l2));
+                        let px = obs.x1 + t*(obs.x2-obs.x1), py = obs.y1 + t*(obs.y2-obs.y1);
+                        let dist = Math.hypot(this.x - px, this.y - py);
+                        if(dist < dr) {
+                            let ang = Math.atan2(this.y - py, this.x - px);
+                            this.x = px + Math.cos(ang) * dr; this.y = py + Math.sin(ang) * dr;
+                            this.vx += Math.cos(ang)*4; this.vy += Math.sin(ang)*4;
+                        }
+                    } else if(Math.hypot(this.x-obs.x, this.y-obs.y) < dr) {
+                        let ang = Math.atan2(this.y-obs.y, this.x-obs.x);
+                        this.x = obs.x + Math.cos(ang)*dr; this.y = obs.y + Math.sin(ang)*dr;
+                        this.vx += Math.cos(ang)*4; this.vy += Math.sin(ang)*4;
+                    }
+                });
+
+                // Wände
+                if (this.x - this.r < 0) { this.x = this.r; this.vx *= -0.5; }
+                if (this.x + this.r > width) { this.x = width - this.r; this.vx *= -0.5; }
+                if (this.y - this.r < 0) { this.y = this.r; this.vy *= -0.5; }
+                if (this.y + this.r > height) { this.y = height - this.r; this.vy *= -0.5; }
+            }
+            draw() {
+                ctx.fillStyle = this.type === 'ball' ? "#ff9900" : "#aa6600";
+                ctx.strokeStyle = "#888"; ctx.lineWidth = 1; ctx.beginPath();
+                if(this.type === 'ball' || this.type === 'sinking_ball') ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+                ctx.fill(); ctx.stroke();
             }
         }
 
@@ -242,14 +332,14 @@
                     if(spawnAcc > 30) { spawnColumn(-20); spawnAcc = 0; }
                 }
 
+                // Statische Hindernisse zeichnen
                 obstacles.forEach(obs => {
-                    ctx.fillStyle = "#111"; ctx.strokeStyle = isCheater ? "red" : (obs.type==='smoke'?"#00ffcc":"#888"); ctx.lineWidth = 2;
+                    ctx.fillStyle = "#111"; ctx.strokeStyle = isCheater ? "red" : (obs.type==='smoke'?"#00ffcc":(activeGame==='wind'?"#888":"#aa6600")); ctx.lineWidth = 2;
                     ctx.beginPath();
                     if(obs.type === 'smoke') {
                         ctx.arc(obs.x, obs.y, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
                         if(Math.random() > 0.4) particles.push(new Particle(obs.x, obs.y, true));
                     } else if(obs.type === 'wing') {
-                        // NACA Profil Zeichnung (wie früher)
                         let L = 140; ctx.strokeStyle = "#00ffcc";
                         for (let i = 0; i <= 40; i++) {
                             let rx = i / 40;
@@ -273,12 +363,16 @@
                     }
                 });
 
+                // Schwimmende Objekte (Wasser-Modus)
+                if(activeGame === 'water') {
+                    floatingObjects.forEach(obj => { obj.update(); obj.draw(); });
+                }
+
                 particles = particles.filter(p => { p.update(); p.draw(); return p.active; });
             }
             requestAnimationFrame(animate);
         }
 
-        let spawnAcc = 0;
         // Input Handling
         function handleInput(e, isStart) {
             if (isCheater) return;
@@ -302,7 +396,15 @@
                     }
                 }
             } else if (isStart) {
-                obstacles.push({ x, y, r: (currentMode==='wing'?35:r*1.5), type: currentMode, isLine: false });
+                if(currentMode === 'smoke') {
+                    obstacles.push({ x, y, type: 'smoke' });
+                } else if (currentMode === 'ball') {
+                    floatingObjects.push(new FloatingObject(x, y, r, 'ball', 0.5));
+                } else if (currentMode === 'sinking_ball') {
+                    floatingObjects.push(new FloatingObject(x, y, r, 'sinking_ball', 3.0));
+                } else {
+                    obstacles.push({ x, y, r: (currentMode==='wing'?35:r*1.5), type: currentMode, isLine: false });
+                }
             }
         }
 
@@ -318,18 +420,18 @@
             if(val === 'skyline') obstacles.push({x:cx, y:height, r:150, type:'rect_fixed'});
             if(val === 'cow') obstacles.push({x:cx, y:cy, r:50, type:'circle_fixed'});
             if(val === 'wall') obstacles.push({x:cx, y:cy, r:120, type:'rect_fixed'});
+            document.getElementById('presetSelect').value = ""; // Dropdown zurücksetzen
         }
 
         document.getElementById('speedRange').oninput = e => windSpeed = parseFloat(e.target.value);
-        function resetSim() { obstacles = []; }
-        window.onresize = init;
+        function resetSim() { obstacles = []; floatingObjects = []; }
+        window.onresize = init; init(); animate();
         
-        // Anti-Cheat
+        // Anti-Cheat (auf UI Container)
         new MutationObserver(() => {
-            if(!isCheater) { isCheater = true; document.getElementById('ui').classList.add('cheat-mode'); windSpeed = 100; alert("🚨 SYSTEM PROTECTED 🚨"); }
+            if(!isCheater) { isCheater = true; document.getElementById('ui').classList.add('cheat-mode'); document.getElementById('appTitle').innerText="CRASHED"; windSpeed = 100; alert("🚨 SYSTEM PROTECTED 🚨"); }
         }).observe(document.getElementById('ui'), { childList: true, subtree: true, characterData: true });
 
-        animate();
     </script>
 </body>
 </html>

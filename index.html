@@ -426,11 +426,7 @@
         document.getElementById('speedRange').oninput = e => windSpeed = parseFloat(e.target.value);
         function resetSim() { obstacles = []; floatingObjects = []; }
         window.onresize = init; init(); animate();
-        // Anti-Cheat (auf UI Container)
-        new MutationObserver(() => {
-            if(!isCheater) { isCheater = true; document.getElementById('ui').classList.add('cheat-mode'); document.getElementById('appTitle').innerText="CRASHED"; windSpeed = 100; alert("🚨 SYSTEM PROTECTED 🚨"); }
-        }).observe(document.getElementById('ui'), { childList: true, subtree: true, characterData: true });
-        
+
 
     </script>
 </body>

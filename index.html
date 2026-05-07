@@ -187,21 +187,20 @@
         function spawnChemElement(id) {
             chemObjects.push({
                 id: id, x: width/2 + (Math.random()*40-20), y: height/2 + (Math.random()*40-20),
-                r: 30, color: elementsData[id].color, symbol: elementsData[id].symbol
+                r: 30, color: elementsData[id].color, symbol: elementsData[id].symbol,
+                errorTicks: 0 // Neu für das Blinken
             });
         }
 
         // --- DYNAMISCHES WERKZEUG MENÜ ---
         function updateToolDropdown(mode) {
             const select = document.getElementById('objectSelect');
-            select.innerHTML = ''; // Vorherige Optionen löschen
+            select.innerHTML = ''; 
             
-            // Standard Werkzeuge (immer da)
             select.add(new Option('✏️ Freihand Stift', 'draw'));
             select.add(new Option('⬛ Festes Quadrat', 'rect_fixed'));
             select.add(new Option('🌑 Fester Kreis', 'circle_fixed'));
             
-            // Spezifische Werkzeuge
             if (mode === 'wind') {
                 select.add(new Option('✈️ NACA Flügel', 'wing'));
                 select.add(new Option('💨 Rauch-Düse', 'smoke'));
@@ -222,7 +221,6 @@
             
             const appTitle = document.getElementById('appTitle');
             
-            // UI anpassen
             document.getElementById('physics-controls').style.display = (mode === 'chem') ? 'none' : 'block';
             document.getElementById('chem-inventory').className = (mode === 'chem') ? "" : "hidden";
             document.getElementById('chem-instructions').className = (mode === 'chem') ? "section" : "section hidden";
@@ -389,7 +387,10 @@
 
                 if(activeGame === 'chem') {
                     chemObjects.forEach(obj => {
-                        ctx.fillStyle = obj.color;
+                        // --- NEUE BLINK LOGIK ---
+                        ctx.fillStyle = (obj.errorTicks > 0 && Math.floor(obj.errorTicks / 5) % 2 === 0) ? "#ff0000" : obj.color;
+                        if(obj.errorTicks > 0) obj.errorTicks--;
+
                         ctx.strokeStyle = "white"; ctx.lineWidth = 3;
                         ctx.beginPath(); ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI*2);
                         ctx.fill(); ctx.stroke();
@@ -421,9 +422,7 @@
                 }
             } else {
                 const r = parseInt(document.getElementById('penSize').value);
-                if (currentMode === 'draw' && isStart) {
-                    obstacles.push({ x, y, r, isLine: false });
-                } else if (!isStart && isDrawing && currentMode === 'draw') {
+                if (currentMode === 'draw' && (isStart || isDrawing)) {
                     obstacles.push({ x, y, r, isLine: false });
                 } else if (isStart) {
                     if(currentMode === 'smoke') {
@@ -439,18 +438,15 @@
             }
         }
 
-        // Rezept-Prüfer und Papierkorb
         function checkChemCombinations() {
             if (!draggedChem || activeGame !== 'chem') return;
             
-            // 🗑️ PAPIERKORB-FUNKTION: Wenn das Element in den unteren Bereich gezogen wird
             if (draggedChem.y > height - 100) {
                 chemObjects = chemObjects.filter(c => c !== draggedChem);
                 draggedChem = null;
                 return;
             }
             
-            // Kombination prüfen
             for (let i = 0; i < chemObjects.length; i++) {
                 let other = chemObjects[i];
                 if (other === draggedChem) continue;
@@ -471,14 +467,23 @@
                         
                         chemObjects.push({
                             id: resultId, x: newX, y: newY, r: 35,
-                            color: elementsData[resultId].color, symbol: elementsData[resultId].symbol
+                            color: elementsData[resultId].color, symbol: elementsData[resultId].symbol,
+                            errorTicks: 0
                         });
                         
                         if(!unlockedElements.includes(resultId)) {
                             unlockedElements.push(resultId);
                             renderChemInventory();
                         }
-                        break; 
+                        draggedChem = null;
+                        return;
+                    } else {
+                        // --- KEIN REZEPT: BLINKEN UND ABSTOSSEN ---
+                        draggedChem.errorTicks = 30;
+                        other.errorTicks = 30;
+                        let ang = Math.atan2(other.y - draggedChem.y, other.x - draggedChem.x);
+                        other.x += Math.cos(ang) * 20;
+                        other.y += Math.sin(ang) * 20;
                     }
                 }
             }
@@ -486,11 +491,11 @@
         }
 
         canvas.addEventListener('mousedown', e => { isDrawing = true; handleInput(e, true); });
-        canvas.addEventListener('mousemove', e => { if (isDrawing || draggedChem) handleInput(e, false); });
+        canvas.addEventListener('mousemove', e => handleInput(e, false));
         window.addEventListener('mouseup', () => { isDrawing = false; checkChemCombinations(); });
         
         canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing = true; handleInput(e, true); }, {passive:false});
-        canvas.addEventListener('touchmove', e => { e.preventDefault(); if(isDrawing || draggedChem) handleInput(e, false); }, {passive:false});
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); handleInput(e, false); }, {passive:false});
         canvas.addEventListener('touchend', () => { isDrawing = false; checkChemCombinations(); });
 
         document.getElementById('speedRange').oninput = e => windSpeed = parseFloat(e.target.value);

@@ -54,6 +54,12 @@
             background: rgba(20, 10, 30, 0.9); padding: 10px; border-radius: 12px;
             border: 1px solid #80c; display: flex; gap: 10px; z-index: 10;
             max-width: 90%; overflow-x: auto;
+            box-shadow: 0 0 20px rgba(255, 0, 204, 0.2);
+        }
+        #chem-inventory::before {
+            content: "↓ Elemente hierher ziehen zum Löschen ↓";
+            position: absolute; top: -25px; left: 0; width: 100%; text-align: center;
+            font-size: 10px; color: #ff00cc; font-weight: bold; text-transform: uppercase;
         }
         .element-btn {
             width: 50px; height: 50px; border-radius: 50%; border: 2px solid white;
@@ -96,14 +102,7 @@
                 <div class="section">
                     <label id="toolLabel">Werkzeug</label>
                     <select id="objectSelect" onchange="updateToolMode(this.value)">
-                        <option value="draw">✏️ Freihand Stift</option>
-                        <option value="rect_fixed">⬛ Festes Quadrat</option>
-                        <option value="circle_fixed">🌑 Fester Kreis</option>
-                        <option id="wingOpt" value="wing">✈️ NACA Flügel</option>
-                        <option id="smokeOpt" value="smoke">💨 Rauch-Düse</option>
-                        <option id="ballOpt" value="ball" class="hidden">⚽ Ball (Schwimmt)</option>
-                        <option id="sinkOpt" value="sinking_ball" class="hidden">⚓ Stein (Sinkt)</option>
-                    </select>
+                        </select>
                 </div>
 
                 <div id="penControls" class="section">
@@ -123,7 +122,7 @@
 
             <div id="chem-instructions" class="section hidden" style="font-size: 12px; color: #ccc;">
                 Klicke unten auf Elemente, um sie zu spawnen. Ziehe sie mit der Maus übereinander, um neue Stoffe zu mixen!<br><br>
-                <b>Tipp:</b> H + O = ?
+                <b>Tipp:</b> Ziehe sie wieder nach unten in die Leiste, um sie zu <b>löschen</b>.
             </div>
 
             <button id="resetBtn" onclick="resetSim()">🧹 Leeren</button>
@@ -159,17 +158,16 @@
             'Explosion': { name: 'BUMM!', color: '#ff5500', symbol: '💥' }
         };
 
-        // Hier kannst du eigene Rezepte hinzufügen!
         const recipes = [
             { req: ['H', 'O'], result: 'H2O' },
             { req: ['Na', 'Cl'], result: 'NaCl' },
             { req: ['C', 'O'], result: 'CO2' },
-            { req: ['H2O', 'Na'], result: 'NaOH' }, // Reagiert weiter!
+            { req: ['H2O', 'Na'], result: 'NaOH' }, 
             { req: ['H', 'Cl'], result: 'HCl' },
-            { req: ['Na', 'H2O'], result: 'Explosion' } // Spaß-Rezept
+            { req: ['Na', 'H2O'], result: 'Explosion' } 
         ];
 
-        let unlockedElements = ['H', 'O', 'Na', 'Cl', 'C']; // Diese hast du am Anfang
+        let unlockedElements = ['H', 'O', 'Na', 'Cl', 'C'];
 
         function renderChemInventory() {
             const inv = document.getElementById('chem-inventory');
@@ -193,6 +191,28 @@
             });
         }
 
+        // --- DYNAMISCHES WERKZEUG MENÜ ---
+        function updateToolDropdown(mode) {
+            const select = document.getElementById('objectSelect');
+            select.innerHTML = ''; // Vorherige Optionen löschen
+            
+            // Standard Werkzeuge (immer da)
+            select.add(new Option('✏️ Freihand Stift', 'draw'));
+            select.add(new Option('⬛ Festes Quadrat', 'rect_fixed'));
+            select.add(new Option('🌑 Fester Kreis', 'circle_fixed'));
+            
+            // Spezifische Werkzeuge
+            if (mode === 'wind') {
+                select.add(new Option('✈️ NACA Flügel', 'wing'));
+                select.add(new Option('💨 Rauch-Düse', 'smoke'));
+            } else if (mode === 'water') {
+                select.add(new Option('⚽ Ball (Schwimmt)', 'ball'));
+                select.add(new Option('⚓ Stein (Sinkt)', 'sinking_ball'));
+            }
+            select.value = "draw";
+            updateToolMode("draw");
+        }
+
         // --- SPIELSTEUERUNG ---
         function startGame(mode) {
             activeGame = mode;
@@ -201,23 +221,23 @@
             resetSim();
             
             const appTitle = document.getElementById('appTitle');
-            const toolSelect = document.getElementById('objectSelect');
             
-            // UI für Wind/Wasser an oder ausschalten
+            // UI anpassen
             document.getElementById('physics-controls').style.display = (mode === 'chem') ? 'none' : 'block';
             document.getElementById('chem-inventory').className = (mode === 'chem') ? "" : "hidden";
             document.getElementById('chem-instructions').className = (mode === 'chem') ? "section" : "section hidden";
+            document.getElementById('wind-only-controls').style.display = (mode === 'wind') ? 'block' : 'none';
             
             if (mode === 'wind') {
                 appTitle.innerText = "Windkanal"; appTitle.className = "";
-                document.getElementById('wingOpt').className = ""; document.getElementById('smokeOpt').className = "";
-                document.getElementById('ballOpt').className = "hidden"; document.getElementById('sinkOpt').className = "hidden";
-                toolSelect.value = "draw"; updateToolMode("draw");
+                document.getElementById('toolLabel').innerText = "Luft-Werkzeug";
+                document.getElementById('forceLabel').innerText = "Windstärke";
+                updateToolDropdown('wind');
             } else if (mode === 'water') {
                 appTitle.innerText = "Wasser-Becken"; appTitle.className = "water-title";
-                document.getElementById('wingOpt').className = "hidden"; document.getElementById('smokeOpt').className = "hidden";
-                document.getElementById('ballOpt').className = ""; document.getElementById('sinkOpt').className = "";
-                toolSelect.value = "draw"; updateToolMode("draw");
+                document.getElementById('toolLabel').innerText = "Wasser-Werkzeug";
+                document.getElementById('forceLabel').innerText = "Wellen-Kraft";
+                updateToolDropdown('water');
             } else if (mode === 'chem') {
                 appTitle.innerText = "Chemie-Labor"; appTitle.className = "chem-title";
                 renderChemInventory();
@@ -254,8 +274,9 @@
 
         function setLineStyle(style) {
             lineStyle = style;
-            document.getElementById('solidBtn').classList.toggle('active', style === 'solid');
-            document.getElementById('dashBtn').classList.toggle('active', style === 'dashed');
+            const activeClass = activeGame === 'wind' ? 'active' : 'water-active';
+            document.getElementById('solidBtn').className = (style === 'solid') ? 'tool-btn ' + activeClass : 'tool-btn';
+            document.getElementById('dashBtn').className = (style === 'dashed') ? 'tool-btn ' + activeClass : 'tool-btn';
         }
 
         class Particle {
@@ -270,7 +291,20 @@
                 obstacles.forEach(obs => {
                     if (obs.type === 'smoke') return;
                     let dx = this.x - obs.x, dy = this.y - obs.y, dist = Math.hypot(dx, dy), r = obs.r || 20;
-                    if (dist < r) {
+                    if (obs.type === 'wing' && activeGame === 'wind') {
+                        let L = 140, relX = (this.x - obs.x) / L + 0.5;
+                        if (relX >= 0 && relX <= 1) {
+                            let yt = 12 * 0.12 * (0.2969 * Math.sqrt(relX) - 0.1260 * relX - 0.3516 * relX**2 + 0.2843 * relX**3 - 0.1015 * relX**4) * L;
+                            let yc = (relX < 0.4) ? (0.02 / 0.16) * (0.8 * relX - relX**2) * L : (0.02 / 0.36) * (0.2 + 0.8 * relX - relX**2) * L;
+                            let yTop = -yc - yt, yBot = -yc + yt, pdy = this.y - obs.y;
+                            if (Math.abs(pdy - yTop) < 25 || Math.abs(pdy - yBot) < 25) {
+                                let slope = (relX < 0.95) ? (yt / (relX * L + 1)) * 0.4 : 0;
+                                targetVy = (pdy < 0) ? -slope * windSpeed : slope * windSpeed;
+                                this.turb += 0.06;
+                                if (pdy > yTop && pdy < yBot) this.y = obs.y + (pdy < 0 ? yTop - 2 : yBot + 2);
+                            }
+                        }
+                    } else if (dist < r) {
                         let ang = Math.atan2(dy, dx);
                         this.x = obs.x + Math.cos(ang) * r; this.y = obs.y + Math.sin(ang) * r;
                         this.turb += 1.2;
@@ -287,12 +321,37 @@
             }
         }
 
+        class FloatingObject {
+            constructor(x, y, r, type, density) {
+                this.x = x; this.y = y; this.r = r;
+                this.vx = (Math.random() - 0.5) * 4; this.vy = (Math.random() - 0.5) * 4;
+                this.type = type; this.density = density; this.area = r * r;
+            }
+            update() {
+                const gravity = 0.5, waterDensity = 1.0;
+                this.vy += gravity * this.density;
+                this.vy -= (waterDensity * this.area * gravity) / this.area;
+                this.vx -= this.vx * 0.04; this.vy -= this.vy * 0.04;
+                this.x += this.vx; this.y += this.vy;
+                
+                if (this.x - this.r < 0) { this.x = this.r; this.vx *= -0.5; }
+                if (this.x + this.r > width) { this.x = width - this.r; this.vx *= -0.5; }
+                if (this.y - this.r < 0) { this.y = this.r; this.vy *= -0.5; }
+                if (this.y + this.r > height) { this.y = height - this.r; this.vy *= -0.5; }
+            }
+            draw() {
+                ctx.fillStyle = this.type === 'ball' ? "#ff9900" : "#aa6600";
+                ctx.strokeStyle = "#888"; ctx.lineWidth = 1; ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+                ctx.fill(); ctx.stroke();
+            }
+        }
+
         function animate() {
             if (activeGame) {
-                // Hintergrundfarbe je nach Modus
                 if (activeGame === 'wind') ctx.fillStyle = "rgba(5,5,10,0.3)";
                 else if (activeGame === 'water') ctx.fillStyle = "rgba(0,10,20,0.4)";
-                else ctx.fillStyle = "rgba(20,10,30,1)"; // Chemie Hintergrund (starr)
+                else ctx.fillStyle = "rgba(20,10,30,1)";
                 ctx.fillRect(0, 0, width, height);
                 
                 if(activeGame === 'wind' || activeGame === 'water') {
@@ -300,15 +359,35 @@
                     obstacles.forEach(obs => {
                         ctx.fillStyle = "#111"; ctx.strokeStyle = obs.type==='smoke'?"#00ffcc":"#888"; ctx.lineWidth = 2;
                         ctx.beginPath();
-                        if(obs.type === 'rect_fixed') ctx.rect(obs.x-obs.r, obs.y-obs.r, obs.r*2, obs.r*2);
-                        else ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI*2);
-                        ctx.fill(); ctx.stroke();
+                        if(obs.type === 'wing') {
+                            let L = 140; ctx.strokeStyle = "#00ffcc";
+                            for (let i = 0; i <= 40; i++) {
+                                let rx = i / 40;
+                                let yt = 12 * 0.12 * (0.2969 * Math.sqrt(rx) - 0.1260 * rx - 0.3516 * rx**2 + 0.2843 * rx**3 - 0.1015 * rx**4) * L;
+                                let yc = (rx < 0.4) ? (0.02 / 0.16) * (0.8 * rx - rx**2) * L : (0.02 / 0.36) * (0.2 + 0.8 * rx - rx**2) * L;
+                                i === 0 ? ctx.moveTo(obs.x + (rx-0.5)*L, obs.y-yc-yt) : ctx.lineTo(obs.x + (rx-0.5)*L, obs.y-yc-yt);
+                            }
+                            for (let i = 40; i >= 0; i--) {
+                                let rx = i / 40;
+                                let yt = 12 * 0.12 * (0.2969 * Math.sqrt(rx) - 0.1260 * rx - 0.3516 * rx**2 + 0.2843 * rx**3 - 0.1015 * rx**4) * L;
+                                let yc = (rx < 0.4) ? (0.02 / 0.16) * (0.8 * rx - rx**2) * L : (0.02 / 0.36) * (0.2 + 0.8 * rx - rx**2) * L;
+                                ctx.lineTo(obs.x + (rx-0.5)*L, obs.y-yc+yt);
+                            }
+                            ctx.closePath(); ctx.fill(); ctx.stroke();
+                        } else if(obs.type === 'rect_fixed') {
+                            ctx.rect(obs.x-obs.r, obs.y-obs.r, obs.r*2, obs.r*2); ctx.fill(); ctx.stroke();
+                        } else {
+                            ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                        }
                     });
+
+                    if(activeGame === 'water') {
+                        floatingObjects.forEach(obj => { obj.update(); obj.draw(); });
+                    }
                     particles = particles.filter(p => { p.update(); p.draw(); return p.active; });
                 }
 
                 if(activeGame === 'chem') {
-                    // Zeichne Chemie-Elemente
                     chemObjects.forEach(obj => {
                         ctx.fillStyle = obj.color;
                         ctx.strokeStyle = "white"; ctx.lineWidth = 3;
@@ -331,7 +410,6 @@
             
             if (activeGame === 'chem') {
                 if (isStart) {
-                    // Prüfen ob wir ein Element greifen (von hinten nach vorne wg. z-index)
                     for (let i = chemObjects.length - 1; i >= 0; i--) {
                         if (Math.hypot(x - chemObjects[i].x, y - chemObjects[i].y) < chemObjects[i].r) {
                             draggedChem = chemObjects[i];
@@ -342,28 +420,42 @@
                     draggedChem.x = x; draggedChem.y = y;
                 }
             } else {
-                // Wind & Wasser Interaktion
                 const r = parseInt(document.getElementById('penSize').value);
                 if (currentMode === 'draw' && isStart) {
                     obstacles.push({ x, y, r, isLine: false });
                 } else if (!isStart && isDrawing && currentMode === 'draw') {
                     obstacles.push({ x, y, r, isLine: false });
                 } else if (isStart) {
-                    obstacles.push({ x, y, r: r*1.5, type: currentMode, isLine: false });
+                    if(currentMode === 'smoke') {
+                        obstacles.push({ x, y, type: 'smoke' });
+                    } else if (currentMode === 'ball') {
+                        floatingObjects.push(new FloatingObject(x, y, r*1.5, 'ball', 0.5));
+                    } else if (currentMode === 'sinking_ball') {
+                        floatingObjects.push(new FloatingObject(x, y, r*1.5, 'sinking_ball', 3.0));
+                    } else {
+                        obstacles.push({ x, y, r: (currentMode==='wing'?35:r*1.5), type: currentMode, isLine: false });
+                    }
                 }
             }
         }
 
-        // Rezept-Prüfer
+        // Rezept-Prüfer und Papierkorb
         function checkChemCombinations() {
             if (!draggedChem || activeGame !== 'chem') return;
             
+            // 🗑️ PAPIERKORB-FUNKTION: Wenn das Element in den unteren Bereich gezogen wird
+            if (draggedChem.y > height - 100) {
+                chemObjects = chemObjects.filter(c => c !== draggedChem);
+                draggedChem = null;
+                return;
+            }
+            
+            // Kombination prüfen
             for (let i = 0; i < chemObjects.length; i++) {
                 let other = chemObjects[i];
                 if (other === draggedChem) continue;
 
                 if (Math.hypot(draggedChem.x - other.x, draggedChem.y - other.y) < draggedChem.r + other.r) {
-                    // Kollision! Rezept prüfen.
                     let pair = [draggedChem.id, other.id];
                     let match = recipes.find(r => 
                         (r.req[0] === pair[0] && r.req[1] === pair[1]) || 
@@ -371,26 +463,22 @@
                     );
 
                     if (match) {
-                        // Erfolgreich kombiniert!
                         let resultId = match.result;
                         let newX = (draggedChem.x + other.x) / 2;
                         let newY = (draggedChem.y + other.y) / 2;
                         
-                        // Alte löschen
                         chemObjects = chemObjects.filter(c => c !== draggedChem && c !== other);
                         
-                        // Neues spawnen
                         chemObjects.push({
                             id: resultId, x: newX, y: newY, r: 35,
                             color: elementsData[resultId].color, symbol: elementsData[resultId].symbol
                         });
                         
-                        // Wenn noch nicht freigeschaltet, zum Inventar hinzufügen
                         if(!unlockedElements.includes(resultId)) {
                             unlockedElements.push(resultId);
                             renderChemInventory();
                         }
-                        break; // Schleife abbrechen, da Objekte gelöscht wurden
+                        break; 
                     }
                 }
             }
@@ -406,6 +494,12 @@
         canvas.addEventListener('touchend', () => { isDrawing = false; checkChemCombinations(); });
 
         document.getElementById('speedRange').oninput = e => windSpeed = parseFloat(e.target.value);
+        function loadPreset(val) {
+            obstacles = []; let cx = width/2, cy = height/2;
+            if(val === 'skyline') obstacles.push({x:cx, y:height, r:150, type:'rect_fixed'});
+            if(val === 'cow') obstacles.push({x:cx, y:cy, r:50, type:'circle_fixed'});
+            document.getElementById('presetSelect').value = ""; 
+        }
         window.onresize = init; animate();
     </script>
 </body>

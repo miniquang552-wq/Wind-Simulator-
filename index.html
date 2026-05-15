@@ -36,7 +36,8 @@
 
         /* --- PERIODENSYSTEM DRAWER --- */
         #chem-drawer {
-            position: absolute; bottom: -320px; left: 0; width: 100%; height: 380px;
+            position: fixed; /* Geändert von absolute auf fixed, damit es auf Handys sicher am Rand bleibt */
+            bottom: -320px; left: 0; width: 100%; height: 380px;
             background: rgba(15, 5, 25, 0.98); border-top: 3px solid var(--chem-accent);
             z-index: 50; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
             display: flex; flex-direction: column; align-items: center;
@@ -45,8 +46,13 @@
         #drawer-handle {
             width: 100%; height: 60px; display: flex; align-items: center; justify-content: center;
             cursor: pointer; background: linear-gradient(to bottom, #2a0a35, #150519);
-            color: var(--chem-accent); font-weight: bold; font-size: 14px; text-transform: uppercase;
+            color: var(--chem-accent); font-weight: bold; font-size: 16px; text-transform: uppercase;
         }
+        
+        /* Animation für die Pfeile */
+        @keyframes bounceArrow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        .bounce { display: inline-block; animation: bounceArrow 1.5s infinite; margin: 0 10px; font-size: 20px; }
+
         #periodic-table {
             display: grid; grid-template-columns: repeat(18, 1fr); gap: 4px; padding: 15px;
             overflow: auto; width: 95%; max-width: 1100px;
@@ -93,7 +99,7 @@
         </div>
 
         <div id="chem-drawer" class="hidden">
-            <div id="drawer-handle" onclick="toggleDrawer()">▲ PERIODENSYSTEM (HOCHZIEHEN) ▲</div>
+            <div id="drawer-handle" onclick="toggleDrawer()"><span class="bounce">⬆️</span> PERIODENSYSTEM <span class="bounce">⬆️</span></div>
             <div id="periodic-table"></div>
         </div>
 
@@ -106,7 +112,7 @@
         let width, height, particles = [], obstacles = [], floatingObjects = [], chemObjects = [];
         let windSpeed = 8, currentMode = 'draw', isDrawing = false, draggedChem = null, activeGame = null;
 
-        // --- DATEN (VOLLSTÄNDIGES PERIODENSYSTEM 1-118) ---
+        // --- DATEN ---
         const elements = [
             // Reihe 1
             {s:'H', n:'Wasserstoff', c:'#fff', x:1, y:1}, {s:'He', n:'Helium', c:'#ffc0cb', x:18, y:1},
@@ -281,7 +287,17 @@
             toggleDrawer();
         }
 
-        function toggleDrawer() { document.getElementById('chem-drawer').classList.toggle('open'); }
+        // --- NEU: Drawer Toggle mit Text/Pfeil Wechsel ---
+        function toggleDrawer() { 
+            const drawer = document.getElementById('chem-drawer');
+            drawer.classList.toggle('open'); 
+            const handle = document.getElementById('drawer-handle');
+            if(drawer.classList.contains('open')) {
+                handle.innerHTML = '<span style="margin: 0 10px; font-size: 20px;">⬇️</span> SCHLIESSEN <span style="margin: 0 10px; font-size: 20px;">⬇️</span>';
+            } else {
+                handle.innerHTML = '<span class="bounce">⬆️</span> PERIODENSYSTEM <span class="bounce">⬆️</span>';
+            }
+        }
 
         function handleInput(e, isStart) {
             const rect = canvas.getBoundingClientRect();

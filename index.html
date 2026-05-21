@@ -3,74 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Physics Lab Pro - Relaxed Edition</title>
+    <title>Physics Sandbox Pro - Fixed & Relaxed</title>
     <style>
-        :root { --accent: #00ffcc; --bg: #050505; --chem-accent: #ff00cc; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; overflow: hidden; height: 100vh; }
-
+        :root { --accent: #00ffcc; --bg: #050505; --water-accent: #00aaff; --chem-accent: #ff00cc; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* --- MENÜS --- */
         #main-menu {
-            position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: radial-gradient(circle, #111 0%, #050505 100%); z-index: 100;
+            position: absolute; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: radial-gradient(circle, #111 0%, #050505 100%);
+            z-index: 100; transition: 0.5s;
         }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        .card { background: #1a1a1a; border: 2px solid #333; padding: 20px; border-radius: 15px; text-align: center; cursor: pointer; }
-        .card:hover { border-color: var(--accent); }
-
+        .menu-title { font-size: 42px; color: var(--accent); margin-bottom: 40px; text-transform: uppercase; letter-spacing: 5px; text-align: center; }
+        
+        /* Hier war das Grid auf Handys gequetscht - jetzt passt es sich wieder an! */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; max-width: 600px; width: 90%; }
+        
+        .card { background: #1a1a1a; border: 2px solid #333; padding: 25px; border-radius: 15px; text-align: center; cursor: pointer; transition: 0.3s; font-size: 18px; font-weight: bold;}
+        .card:hover { border-color: var(--accent); transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,255,204,0.2); }
+        
+        /* --- UI --- */
         #game-container { display: none; width: 100%; height: 100%; position: relative; }
-        #ui { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 12px; z-index: 10; width: 220px; border: 1px solid #444; }
-        
-        /* Periodensystem Drawer */
-        #chem-drawer {
-            position: fixed; bottom: -330px; left: 0; width: 100%; height: 400px;
-            background: #100515; border-top: 3px solid var(--chem-accent); z-index: 50; transition: 0.4s;
+        #ui { 
+            position: absolute; top: 15px; left: 15px; background: rgba(10, 10, 15, 0.9); 
+            padding: 15px; border-radius: 12px; border: 1px solid #444; z-index: 10; 
+            width: 240px; backdrop-filter: blur(10px); 
         }
-        #chem-drawer.open { transform: translateY(-330px); }
-        #drawer-handle { height: 70px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--chem-accent); font-weight: bold; }
+        .back-btn { background: #333; color: #fff; border: 1px solid #555; padding: 8px; border-radius: 6px; cursor: pointer; width: 100%; margin-bottom: 15px; font-size: 12px; }
+        h3 { margin: 0 0 10px 0; color: var(--accent); font-size: 14px; text-transform: uppercase; text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .section { margin-bottom: 12px; }
+        label { display: block; font-size: 10px; color: #aaa; margin-bottom: 4px; text-transform: uppercase; }
+        select, input[type="range"] { width: 100%; margin-bottom: 8px; background: #111; color: white; border: 1px solid #444; padding: 6px; border-radius: 4px; font-size: 12px; }
+        #resetBtn { background: #cc0000; color: white; border: none; width: 100%; font-weight: bold; padding: 10px; border-radius: 4px; cursor: pointer; }
+
+        /* --- PERIODENSYSTEM DRAWER --- */
+        #chem-drawer {
+            position: fixed; 
+            bottom: -320px; left: 0; width: 100%; height: 380px;
+            background: rgba(15, 5, 25, 0.98); border-top: 3px solid var(--chem-accent);
+            z-index: 50; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+            display: flex; flex-direction: column; align-items: center;
+        }
+        #chem-drawer.open { transform: translateY(-320px); }
+        #drawer-handle {
+            width: 100%; height: 60px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; background: linear-gradient(to bottom, #2a0a35, #150519);
+            color: var(--chem-accent); font-weight: bold; font-size: 16px; text-transform: uppercase;
+        }
         
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .arrow { font-size: 30px; animation: bounce 1s infinite; margin: 0 15px; }
+        @keyframes bounceArrow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        .bounce { display: inline-block; animation: bounceArrow 1.5s infinite; margin: 0 10px; font-size: 20px; }
 
-        #periodic-table { display: grid; grid-template-columns: repeat(18, 1fr); gap: 4px; padding: 10px; overflow: auto; }
-        .pt-el { width: 40px; height: 50px; font-size: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; color: black; font-weight: bold; }
+        #periodic-table {
+            display: grid; grid-template-columns: repeat(18, 1fr); gap: 4px; padding: 15px;
+            overflow: auto; width: 95%; max-width: 1100px;
+        }
+        .pt-element {
+            width: 42px; height: 50px; border: 1px solid rgba(255,255,255,0.1);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 9px; cursor: pointer; transition: 0.2s; border-radius: 3px; color: #000; font-weight: bold;
+        }
+        .pt-element:hover { transform: scale(1.2); z-index: 10; box-shadow: 0 0 15px white; }
+        .pt-element span { font-size: 14px; }
 
-        canvas { display: block; }
-        .hidden { display: none; }
-        select, input { width: 100%; margin-top: 5px; margin-bottom: 10px; }
+        canvas { display: block; touch-action: none; }
+        
+        /* HIER WAR DER FEHLER! Ohne !important hat sich das Menü nicht mehr ausgeblendet! */
+        .hidden { display: none !important; }
     </style>
 </head>
-<body id="mainBody">
+<body>
 
     <div id="main-menu">
-        <h1 style="color: var(--accent)">PHYSICS LAB PRO</h1>
+        <h1 class="menu-title">Physics Lab Pro</h1>
         <div class="grid">
-            <div class="card" onclick="startGame('wind')">🌬️ Wind</div>
+            <div class="card" onclick="startGame('wind')">🌬️ Windkanal</div>
             <div class="card" onclick="startGame('water')">🌊 Wasser</div>
-            <div class="card" onclick="startGame('chem')">🧪 Chemie</div>
+            <div class="card" style="border-color: #ff00cc;" onclick="startGame('chem')">🧪 Chemie</div>
         </div>
     </div>
 
     <div id="game-container">
         <div id="ui">
-            <button onclick="location.reload()">⬅ Zurück</button>
-            <h3 id="mode-title">Labor</h3>
-            <label>Werkzeug:</label>
-            <select id="toolSelect">
-                <option value="block">⬛ Fester Block</option>
-                <option value="wing">✈️ Realistischer Flügel</option>
-                <option value="ball">⚽ Ball (leicht)</option>
-                <option value="stone">⚓ Stein (schwer)</option>
-            </select>
-            <label>Größe:</label>
-            <input type="range" id="sizeRange" min="10" max="100" value="40">
-            <label>Wind/Fluss-Speed:</label>
-            <input type="range" id="speedRange" min="0" max="25" value="10">
-            <button onclick="resetSim()" style="background: #444; color: white; border: none; padding: 10px; width: 100%; cursor: pointer;">🧹 Leeren</button>
+            <button class="back-btn" onclick="backToMenu()">⬅ Menü</button>
+            <h3 id="appTitle">Labor</h3>
+            <div id="physics-controls">
+                <div class="section">
+                    <label>Werkzeug</label>
+                    <select id="objectSelect">
+                        <option value="draw">✏️ Stift (Rund)</option>
+                        <option value="block">⬛ Block (Eckig)</option>
+                        <option value="wing">✈️ Flügel</option>
+                        <option value="ball">⚽ Ball (schwimmt)</option>
+                        <option value="stone">⚓ Stein (sinkt)</option>
+                        <option value="smoke">💨 Rauch</option>
+                    </select>
+                </div>
+                <div class="section">
+                    <label>Größe</label>
+                    <input type="range" id="penSize" min="10" max="80" value="25">
+                    <label>Wind / Fluss-Speed</label>
+                    <input type="range" id="speedRange" min="2" max="25" step="0.5" value="10">
+                </div>
+            </div>
+            <button id="resetBtn" onclick="resetSim()">🧹 Alles Leeren</button>
         </div>
 
         <div id="chem-drawer" class="hidden">
-            <div id="drawer-handle" onclick="toggleDrawer()">
-                <span class="arrow">⬆️</span> PERIODENSYSTEM HIER ZIEHEN <span class="arrow">⬆️</span>
-            </div>
+            <div id="drawer-handle" onclick="toggleDrawer()"><span class="bounce">⬆️</span> PERIODENSYSTEM <span class="bounce">⬆️</span></div>
             <div id="periodic-table"></div>
         </div>
 
@@ -80,147 +121,282 @@
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
-        const body = document.getElementById('mainBody');
-        let width, height, activeGame = null;
-        let particles = [], obstacles = [], items = [];
-        let isDrawing = false;
+        let width, height, particles = [], obstacles = [], floatingObjects = [], chemObjects = [];
+        let activeGame = null, isDrawing = false, draggedChem = null;
 
-        // --- ELEMENTS DATA (Shortened for space, but functional) ---
+        // --- DAS KOMPLETTE PERIODENSYSTEM (118 Elemente) ---
         const elements = [
-            {s:'H', c:'#fff', x:1, y:1}, {s:'He', c:'#f9c', x:18, y:1},
-            {s:'Li', c:'#f66', x:1, y:2}, {s:'Be', c:'#f96', x:2, y:2},
-            {s:'C', c:'#888', x:14, y:2}, {s:'O', c:'#0cf', x:16, y:2},
-            {s:'Na', c:'#f33', x:1, y:3}, {s:'Cl', c:'#0f0', x:17, y:3}
+            {s:'H', n:'Wasserstoff', c:'#fff', x:1, y:1}, {s:'He', n:'Helium', c:'#ffc0cb', x:18, y:1},
+            {s:'Li', n:'Lithium', c:'#f66', x:1, y:2}, {s:'Be', n:'Beryllium', c:'#f96', x:2, y:2},
+            {s:'B', n:'Bor', c:'#9f9', x:13, y:2}, {s:'C', n:'Kohlenstoff', c:'#888', x:14, y:2},
+            {s:'N', n:'Stickstoff', c:'#66f', x:15, y:2}, {s:'O', n:'Sauerstoff', c:'#0cf', x:16, y:2},
+            {s:'F', n:'Fluor', c:'#ff9', x:17, y:2}, {s:'Ne', n:'Neon', c:'#f9f', x:18, y:2},
+            {s:'Na', n:'Natrium', c:'#f33', x:1, y:3}, {s:'Mg', n:'Magnesium', c:'#f96', x:2, y:3},
+            {s:'Al', n:'Aluminium', c:'#ccc', x:13, y:3}, {s:'Si', n:'Silizium', c:'#996', x:14, y:3},
+            {s:'P', n:'Phosphor', c:'#f90', x:15, y:3}, {s:'S', n:'Schwefel', c:'#ff0', x:16, y:3},
+            {s:'Cl', n:'Chlor', c:'#0f0', x:17, y:3}, {s:'Ar', n:'Argon', x:18, y:3, c:'#cff'},
+            {s:'K', n:'Kalium', c:'#f33', x:1, y:4}, {s:'Ca', n:'Calcium', c:'#f96', x:2, y:4},
+            {s:'Sc', n:'Scandium', c:'#ffc', x:3, y:4}, {s:'Ti', n:'Titan', c:'#ffc', x:4, y:4},
+            {s:'V', n:'Vanadium', c:'#ffc', x:5, y:4}, {s:'Cr', n:'Chrom', c:'#ffc', x:6, y:4},
+            {s:'Mn', n:'Mangan', c:'#ffc', x:7, y:4}, {s:'Fe', n:'Eisen', c:'#ffc', x:8, y:4},
+            {s:'Co', n:'Kobalt', c:'#ffc', x:9, y:4}, {s:'Ni', n:'Nickel', c:'#ffc', x:10, y:4},
+            {s:'Cu', n:'Kupfer', c:'#ffc', x:11, y:4}, {s:'Zn', n:'Zink', c:'#ffc', x:12, y:4},
+            {s:'Ga', n:'Gallium', c:'#ccc', x:13, y:4}, {s:'Ge', n:'Germanium', c:'#996', x:14, y:4},
+            {s:'As', n:'Arsen', c:'#996', x:15, y:4}, {s:'Se', n:'Selen', c:'#ff0', x:16, y:4},
+            {s:'Br', n:'Brom', c:'#0f0', x:17, y:4}, {s:'Kr', n:'Krypton', c:'#cff', x:18, y:4},
+            {s:'Rb', n:'Rubidium', c:'#f33', x:1, y:5}, {s:'Sr', n:'Strontium', c:'#f96', x:2, y:5},
+            {s:'Y', n:'Yttrium', c:'#ffc', x:3, y:5}, {s:'Zr', n:'Zirkonium', c:'#ffc', x:4, y:5},
+            {s:'Nb', n:'Niob', c:'#ffc', x:5, y:5}, {s:'Mo', n:'Molybdän', c:'#ffc', x:6, y:5},
+            {s:'Tc', n:'Technetium', c:'#ffc', x:7, y:5}, {s:'Ru', n:'Ruthenium', c:'#ffc', x:8, y:5},
+            {s:'Rh', n:'Rhodium', c:'#ffc', x:9, y:5}, {s:'Pd', n:'Palladium', c:'#ffc', x:10, y:5},
+            {s:'Ag', n:'Silber', c:'#ffc', x:11, y:5}, {s:'Cd', n:'Cadmium', c:'#ffc', x:12, y:5},
+            {s:'In', n:'Indium', c:'#ccc', x:13, y:5}, {s:'Sn', n:'Zinn', c:'#ccc', x:14, y:5},
+            {s:'Sb', n:'Antimon', c:'#996', x:15, y:5}, {s:'Te', n:'Tellur', c:'#996', x:16, y:5},
+            {s:'I', n:'Iod', c:'#0f0', x:17, y:5}, {s:'Xe', n:'Xenon', c:'#cff', x:18, y:5},
+            {s:'Cs', n:'Cäsium', c:'#f33', x:1, y:6}, {s:'Ba', n:'Barium', c:'#f96', x:2, y:6},
+            {s:'Hf', n:'Hafnium', c:'#ffc', x:4, y:6}, {s:'Ta', n:'Tantal', c:'#ffc', x:5, y:6},
+            {s:'W', n:'Wolfram', c:'#ffc', x:6, y:6}, {s:'Re', n:'Rhenium', c:'#ffc', x:7, y:6},
+            {s:'Os', n:'Osmium', c:'#ffc', x:8, y:6}, {s:'Ir', n:'Iridium', c:'#ffc', x:9, y:6},
+            {s:'Pt', n:'Platin', c:'#ffc', x:10, y:6}, {s:'Au', n:'Gold', c:'#ffc', x:11, y:6},
+            {s:'Hg', n:'Quecksilber', c:'#ffc', x:12, y:6}, {s:'Tl', n:'Thallium', c:'#ccc', x:13, y:6},
+            {s:'Pb', n:'Blei', c:'#ccc', x:14, y:6}, {s:'Bi', n:'Wismut', c:'#ccc', x:15, y:6},
+            {s:'Po', n:'Polonium', c:'#996', x:16, y:6}, {s:'At', n:'Astat', c:'#0f0', x:17, y:6},
+            {s:'Rn', n:'Radon', c:'#cff', x:18, y:6},
+            {s:'Fr', n:'Francium', c:'#f33', x:1, y:7}, {s:'Ra', n:'Radium', c:'#f96', x:2, y:7},
+            {s:'Rf', n:'Rutherfordium', c:'#ffc', x:4, y:7}, {s:'Db', n:'Dubnium', c:'#ffc', x:5, y:7},
+            {s:'Sg', n:'Seaborgium', c:'#ffc', x:6, y:7}, {s:'Bh', n:'Bohrium', c:'#ffc', x:7, y:7},
+            {s:'Hs', n:'Hassium', c:'#ffc', x:8, y:7}, {s:'Mt', n:'Meitnerium', c:'#ffc', x:9, y:7},
+            {s:'Ds', n:'Darmstadtium', c:'#ffc', x:10, y:7}, {s:'Rg', n:'Roentgenium', c:'#ffc', x:11, y:7},
+            {s:'Cn', n:'Copernicium', c:'#ffc', x:12, y:7}, {s:'Nh', n:'Nihonium', c:'#ccc', x:13, y:7},
+            {s:'Fl', n:'Flerovium', c:'#ccc', x:14, y:7}, {s:'Mc', n:'Moscovium', c:'#ccc', x:15, y:7},
+            {s:'Lv', n:'Livermorium', c:'#ccc', x:16, y:7}, {s:'Ts', n:'Tenness', c:'#0f0', x:17, y:7},
+            {s:'Og', n:'Oganesson', c:'#cff', x:18, y:7},
+            {s:'La', n:'Lanthan', c:'#fbf', x:4, y:8}, {s:'Ce', n:'Cer', c:'#fbf', x:5, y:8},
+            {s:'Pr', n:'Praseodym', c:'#fbf', x:6, y:8}, {s:'Nd', n:'Neodym', c:'#fbf', x:7, y:8},
+            {s:'Pm', n:'Promethium', c:'#fbf', x:8, y:8}, {s:'Sm', n:'Samarium', c:'#fbf', x:9, y:8},
+            {s:'Eu', n:'Europium', c:'#fbf', x:10, y:8}, {s:'Gd', n:'Gadolinium', c:'#fbf', x:11, y:8},
+            {s:'Tb', n:'Terbium', c:'#fbf', x:12, y:8}, {s:'Dy', n:'Dysprosium', c:'#fbf', x:13, y:8},
+            {s:'Ho', n:'Holmium', c:'#fbf', x:14, y:8}, {s:'Er', n:'Erbium', c:'#fbf', x:15, y:8},
+            {s:'Tm', n:'Thulium', c:'#fbf', x:16, y:8}, {s:'Yb', n:'Ytterbium', c:'#fbf', x:17, y:8},
+            {s:'Lu', n:'Lutetium', c:'#fbf', x:18, y:8},
+            {s:'Ac', n:'Actinium', c:'#f9f', x:4, y:9}, {s:'Th', n:'Thorium', c:'#f9f', x:5, y:9},
+            {s:'Pa', n:'Protactinium', c:'#f9f', x:6, y:9}, {s:'U', n:'Uran', c:'#f9f', x:7, y:9},
+            {s:'Np', n:'Neptunium', c:'#f9f', x:8, y:9}, {s:'Pu', n:'Plutonium', c:'#f9f', x:9, y:9},
+            {s:'Am', n:'Americium', c:'#f9f', x:10, y:9}, {s:'Cm', n:'Curium', c:'#f9f', x:11, y:9},
+            {s:'Bk', n:'Berkelium', c:'#f9f', x:12, y:9}, {s:'Cf', n:'Californium', c:'#f9f', x:13, y:9},
+            {s:'Es', n:'Einsteinium', c:'#f9f', x:14, y:9}, {s:'Fm', n:'Fermium', c:'#f9f', x:15, y:9},
+            {s:'Md', n:'Mendelevium', c:'#f9f', x:16, y:9}, {s:'No', n:'Nobelium', c:'#f9f', x:17, y:9},
+            {s:'Lr', n:'Lawrencium', c:'#f9f', x:18, y:9}
         ];
 
+        const recipes = [
+            { req: ['H', 'O'], res: 'H2O', c:'#00aaff', n:'Wasser' },
+            { req: ['Na', 'Cl'], res: 'NaCl', c:'#fff', n:'Salz' },
+            { req: ['Na', 'H2O'], res: '💥', c:'#f50', n:'BUMM' }
+        ];
+
+        // --- PHYSIK ---
+        class Particle {
+            constructor(x, y, isSmoke = false) {
+                this.x = x; this.y = y; this.baseY = y;
+                this.vx = 0; this.vy = 0; this.turb = 0; this.active = true; this.isSmoke = isSmoke;
+            }
+            update() {
+                let speed = parseFloat(document.getElementById('speedRange').value);
+                let targetVx = (activeGame === 'wind') ? speed : (Math.sin(Date.now()*0.001 + this.y*0.015)*2.5);
+                let targetVy = (activeGame === 'wind') ? (this.baseY - this.y) * 0.05 : -0.5;
+
+                obstacles.forEach(obs => {
+                    if(obs.type === 'smoke') return;
+                    let dx = this.x - obs.x, dy = this.y - obs.y, dist = Math.hypot(dx, dy);
+                    
+                    if (obs.type === 'wing' && activeGame === 'wind') {
+                        let relX = (this.x - obs.x) / (obs.r * 2) + 0.5;
+                        if (relX >= 0 && relX <= 1) {
+                            let profile = Math.sin(relX * Math.PI) * (obs.r * 0.5);
+                            if (Math.abs(this.y - obs.y) < profile + 10) {
+                                this.y = obs.y + (this.y < obs.y ? -profile - 5 : profile + 5);
+                                targetVx *= 1.3; // Bernoulli Beschleunigung
+                                this.turb += 0.1;
+                            }
+                        }
+                    } else if (dist < obs.r) {
+                        let ang = Math.atan2(dy, dx);
+                        if(obs.type === 'block') { // Rechteckige Kollision vereinfacht über Radius
+                            this.x = obs.x + Math.cos(ang) * obs.r;
+                            this.y = obs.y + Math.sin(ang) * obs.r;
+                        } else {
+                            this.x = obs.x + Math.cos(ang) * obs.r;
+                            this.y = obs.y + Math.sin(ang) * obs.r;
+                        }
+                        this.turb += 0.8;
+                    }
+                });
+
+                this.vx += (targetVx - this.vx) * 0.1; this.vy += (targetVy - this.vy) * 0.1;
+                this.x += this.vx; this.y += this.vy; this.turb *= 0.9;
+                if (this.x > width + 50 || this.x < -50) this.active = false;
+            }
+            draw() {
+                ctx.fillStyle = this.isSmoke ? "#0fcc" : (activeGame === 'wind' ? `rgb(${this.turb*50},${200-this.turb*50},255)` : "#0af");
+                ctx.fillRect(this.x, this.y, this.isSmoke?4:2, this.isSmoke?4:2);
+            }
+        }
+
+        class FloatingObject {
+            constructor(x, y, r, dens) {
+                this.x = x; this.y = y; this.r = r; this.vx = 0; this.vy = 0; this.dens = dens;
+            }
+            update() {
+                this.vy += 0.5 * this.dens; // Schwerkraft
+                this.vy -= 0.5; // Auftrieb
+                this.vx *= 0.95; this.vy *= 0.95;
+                this.x += this.vx; this.y += this.vy;
+                if (this.y + this.r > height) { this.y = height - this.r; this.vy *= -0.5; }
+            }
+            draw() {
+                ctx.fillStyle = this.dens > 1 ? "#777" : "#f90";
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        // --- CORE FUNKTIONEN ---
+        window.onresize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
+        
         function startGame(mode) {
+            window.onresize(); // Sichert die korrekte Größe
             activeGame = mode;
             document.getElementById('main-menu').classList.add('hidden');
             document.getElementById('game-container').style.display = 'block';
-            document.getElementById('mode-title').innerText = mode.toUpperCase();
-            if(mode === 'chem') {
-                document.getElementById('chem-drawer').classList.remove('hidden');
-                setupTable();
+            document.getElementById('appTitle').innerText = mode;
+            
+            document.getElementById('chem-drawer').className = (mode === 'chem' ? "" : "hidden");
+            document.getElementById('physics-controls').className = (mode === 'chem' ? "hidden" : "section");
+            
+            if (mode === 'chem') {
+                const table = document.getElementById('periodic-table');
+                table.innerHTML = '';
+                elements.forEach(e => {
+                    const div = document.createElement('div');
+                    div.className = 'pt-element'; div.style.backgroundColor = e.c;
+                    div.style.gridColumn = e.x; div.style.gridRow = e.y;
+                    div.innerHTML = `<span>${e.s}</span>${e.n}`;
+                    div.onclick = () => {
+                        chemObjects.push({ id: e.s, x: width/2, y: height/2 - 100, r: 35, c: e.c, s: e.s });
+                        toggleDrawer();
+                    };
+                    table.appendChild(div);
+                });
             }
-            window.onresize();
+            resetSim();
         }
 
-        function setupTable() {
-            const table = document.getElementById('periodic-table');
-            table.innerHTML = '';
-            elements.forEach(e => {
-                const div = document.createElement('div');
-                div.className = 'pt-el'; div.style.backgroundColor = e.c;
-                div.style.gridColumn = e.x; div.style.gridRow = e.y;
-                div.innerHTML = e.s;
-                div.onclick = () => { items.push({s: e.s, x: width/2, y: height/2, c: e.c, r: 30}); toggleDrawer(); };
-                table.appendChild(div);
-            });
+        function toggleDrawer() { 
+            const drawer = document.getElementById('chem-drawer');
+            drawer.classList.toggle('open'); 
+            const handle = document.getElementById('drawer-handle');
+            if(drawer.classList.contains('open')) {
+                handle.innerHTML = '<span class="bounce">⬇️</span> SCHLIESSEN <span class="bounce">⬇️</span>';
+            } else {
+                handle.innerHTML = '<span class="bounce">⬆️</span> PERIODENSYSTEM <span class="bounce">⬆️</span>';
+            }
         }
 
-        function toggleDrawer() { document.getElementById('chem-drawer').classList.toggle('open'); }
-
-        class Particle {
-            constructor(x, y) {
-                this.x = x; this.y = y; this.oy = y;
-                this.vx = 0; this.vy = 0;
+        function handleInput(e, isStart) {
+            const rect = canvas.getBoundingClientRect();
+            // Sicherer Touch & Click Fallback
+            const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
+            const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
+            
+            if(clientX === undefined) return;
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+            
+            if (activeGame === 'chem') {
+                if (isStart) draggedChem = chemObjects.slice().reverse().find(o => Math.hypot(x-o.x, y-o.y) < o.r);
+                else if (draggedChem) { draggedChem.x = x; draggedChem.y = y; }
+            } else if (isStart || isDrawing) {
+                let tool = document.getElementById('objectSelect').value;
+                let size = parseInt(document.getElementById('penSize').value);
+                
+                if (tool === 'draw') obstacles.push({x, y, r: size, type:'draw'});
+                else if (tool === 'block') obstacles.push({x, y, r: size, type:'block'});
+                else if (isStart && tool === 'wing') obstacles.push({x, y, r: size * 2, type:'wing'});
+                else if (isStart && tool === 'ball') floatingObjects.push(new FloatingObject(x, y, size, 0.6));
+                else if (isStart && tool === 'stone') floatingObjects.push(new FloatingObject(x, y, size, 2.5));
+                else if (isStart && tool === 'smoke') obstacles.push({x, y, type:'smoke'});
             }
-            update(speed) {
-                let tx = speed;
-                let ty = (this.oy - this.y) * 0.1;
+        }
 
-                obstacles.forEach(o => {
-                    let dx = this.x - o.x;
-                    let dy = this.y - o.y;
-                    let dist = Math.hypot(dx, dy);
-
-                    if (o.type === 'block' && dist < o.r) {
-                        let ang = Math.atan2(dy, dx);
-                        this.x = o.x + Math.cos(ang) * o.r;
-                        this.y = o.y + Math.sin(ang) * o.r;
-                    } 
-                    if (o.type === 'wing') {
-                        // Realistischere Flügel-Umströmung
-                        let relX = (this.x - o.x) / (o.r * 2) + 0.5;
-                        if (relX > 0 && relX < 1) {
-                            let profile = Math.sin(relX * Math.PI) * (o.r * 0.5);
-                            if (Math.abs(this.y - o.y) < profile + 10) {
-                                this.y = o.y + (this.y < o.y ? -profile - 5 : profile + 5);
-                                tx *= 1.2; // Beschleunigung über dem Flügel
-                            }
+        function checkChem() {
+            if (!draggedChem) return;
+            if (draggedChem.y > height - 80) { chemObjects = chemObjects.filter(o => o !== draggedChem); }
+            else {
+                chemObjects.forEach(other => {
+                    if (other === draggedChem) return;
+                    if (Math.hypot(draggedChem.x - other.x, draggedChem.y - other.y) < 60) {
+                        let r = recipes.find(rc => rc.req.includes(draggedChem.id) && rc.req.includes(other.id));
+                        if (r) {
+                            let nx = (draggedChem.x + other.x)/2, ny = (draggedChem.y + other.y)/2;
+                            chemObjects = chemObjects.filter(o => o !== draggedChem && o !== other);
+                            chemObjects.push({id: r.res, x: nx, y: ny, r: 40, c: r.c, s: r.res});
                         }
                     }
                 });
-
-                this.vx += (tx - this.vx) * 0.1;
-                this.vy += (ty - this.vy) * 0.1;
-                this.x += this.vx; this.y += this.vy;
-                if(this.x > width) this.x = 0;
             }
-            draw() {
-                ctx.fillStyle = activeGame === 'wind' ? '#0af' : '#04f';
-                ctx.fillRect(this.x, this.y, 2, 2);
-            }
-        }
-
-        function handleInput(e) {
-            if (!isDrawing) return;
-            const rect = canvas.getBoundingClientRect();
-            const x = (e.clientX || e.touches[0].clientX) - rect.left;
-            const y = (e.clientY || e.touches[0].clientY) - rect.top;
-            const tool = document.getElementById('toolSelect').value;
-            const size = parseInt(document.getElementById('sizeRange').value);
-
-            if (tool === 'block') obstacles.push({x, y, r: size, type: 'block'});
-            if (tool === 'wing') obstacles.push({x, y, r: size, type: 'wing'});
+            draggedChem = null;
         }
 
         function animate() {
-            ctx.fillStyle = "black";
+            ctx.fillStyle = activeGame === 'chem' ? "#100515" : "#050505";
             ctx.fillRect(0, 0, width, height);
-            const speed = parseFloat(document.getElementById('speedRange').value);
 
             if (activeGame === 'wind' || activeGame === 'water') {
-                if (particles.length < 300) {
-                    for(let i=0; i<5; i++) particles.push(new Particle(Math.random()*width, Math.random()*height));
+                if (activeGame === 'wind' && Math.random() < 0.6) {
+                    for(let y=0; y<height; y+=25) particles.push(new Particle(-10, y + Math.random()*10));
                 }
-                particles.forEach(p => { p.update(speed); p.draw(); });
-                
-                obstacles.forEach(o => {
-                    ctx.strokeStyle = varColor(o.type);
-                    ctx.lineWidth = 2;
-                    if(o.type === 'block') {
-                        ctx.strokeRect(o.x - o.r/2, o.y - o.r/2, o.r, o.r);
-                    } else {
-                        // Flügel Zeichnen
+                obstacles.forEach(obs => {
+                    if (obs.type === 'smoke' && Math.random() < 0.2) particles.push(new Particle(obs.x, obs.y, true));
+                    
+                    if (obs.type === 'block') {
+                        ctx.fillStyle = "#444";
+                        ctx.fillRect(obs.x - obs.r, obs.y - obs.r, obs.r*2, obs.r*2);
+                    } else if (obs.type === 'wing') {
+                        ctx.fillStyle = "#555";
                         ctx.beginPath();
-                        ctx.ellipse(o.x, o.y, o.r, o.r/3, 0, 0, Math.PI*2);
-                        ctx.stroke();
+                        ctx.ellipse(obs.x, obs.y, obs.r, obs.r/4, 0, 0, Math.PI*2);
+                        ctx.fill();
+                    } else if (obs.type !== 'smoke') {
+                        ctx.fillStyle = "#333"; 
+                        ctx.beginPath(); ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI*2); ctx.fill();
                     }
                 });
+                floatingObjects.forEach(o => { o.update(); o.draw(); });
+                particles = particles.filter(p => { p.update(); p.draw(); return p.active; });
             }
 
             if (activeGame === 'chem') {
-                items.forEach(it => {
-                    ctx.fillStyle = it.c; ctx.beginPath(); ctx.arc(it.x, it.y, it.r, 0, 7); ctx.fill();
-                    ctx.fillStyle = "black"; ctx.fillText(it.s, it.x-5, it.y+5);
+                chemObjects.forEach(o => {
+                    ctx.fillStyle = o.c; ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.font = "bold 20px Arial";
+                    ctx.fillText(o.s, o.x, o.y + 7);
                 });
             }
             requestAnimationFrame(animate);
         }
 
-        function varColor(type) { return type === 'block' ? '#555' : '#0f0'; }
-        function resetSim() { obstacles = []; particles = []; items = []; }
+        function resetSim() { particles = []; obstacles = []; floatingObjects = []; chemObjects = []; }
+        function backToMenu() { activeGame = null; document.getElementById('main-menu').classList.remove('hidden'); document.getElementById('game-container').style.display='none'; }
+        
+        canvas.addEventListener('mousedown', e => { isDrawing=true; handleInput(e, true); });
+        canvas.addEventListener('mousemove', e => handleInput(e, false));
+        window.addEventListener('mouseup', () => { isDrawing=false; checkChem(); });
+        
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing=true; handleInput(e, true); }, {passive:false});
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); handleInput(e, false); }, {passive:false});
+        canvas.addEventListener('touchend', () => { isDrawing=false; checkChem(); });
 
-        window.onresize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
-        canvas.addEventListener('mousedown', () => isDrawing = true);
-        window.addEventListener('mouseup', () => isDrawing = false);
-        canvas.addEventListener('mousemove', handleInput);
-        canvas.addEventListener('touchstart', () => isDrawing = true);
-        canvas.addEventListener('touchend', () => isDrawing = false);
-        canvas.addEventListener('touchmove', handleInput);
-
-        animate();
+        window.onresize(); animate();
     </script>
 </body>
 </html>

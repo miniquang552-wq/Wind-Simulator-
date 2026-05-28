@@ -272,22 +272,29 @@
             
             document.getElementById('chem-drawer').className = (mode === 'chem' ? "" : "hidden");
             document.getElementById('physics-controls').className = (mode === 'chem' ? "hidden" : "section");
-            
-            if (mode === 'chem') {
-                const table = document.getElementById('periodic-table');
-                table.innerHTML = '';
-                elements.forEach(e => {
-                    const div = document.createElement('div');
-                    div.className = 'pt-element'; div.style.backgroundColor = e.c;
-                    div.style.gridColumn = e.x; div.style.gridRow = e.y;
-                    div.innerHTML = `<span>${e.s}</span>${e.n}`;
-                    div.onclick = () => {
-                        chemObjects.push({ id: e.s, x: width/2, y: height/2 - 100, r: 35, c: e.c, s: e.s });
-                        toggleDrawer();
-                    };
-                    table.appendChild(div);
+            if (activeGame === 'chem') {
+                chemObjects.forEach(o => {
+                    // --- HIER NEU: Blink-Logik prüfen ---
+                    let isRedFrame = o.flashTicks > 0 && Math.floor(o.flashTicks / 4) % 2 === 0;
+                    
+                    ctx.fillStyle = isRedFrame ? "#ff0000" : o.c; 
+                    ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI*2); ctx.fill();
+                    
+                    // --- HIER NEU: Roter Rand und Timer herunterzählen ---
+                    if (o.flashTicks > 0) {
+                        ctx.strokeStyle = "#ff0000";
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        o.flashTicks--;
+                    }
+
+                    // Textfarbe wird weiß, wenn die Kugel rot blinkt, sonst schwarz
+                    ctx.fillStyle = isRedFrame ? "#fff" : "#000"; 
+                    ctx.textAlign = "center"; ctx.font = "bold 20px Arial";
+                    ctx.fillText(o.s, o.x, o.y + 7);
                 });
             }
+            
             resetSim();
         }
 

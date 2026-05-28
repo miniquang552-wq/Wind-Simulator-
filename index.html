@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Physics Sandbox Pro - Fixed & Relaxed</title>
+    <title>Physics Sandbox Pro - Aero & Lines Update</title>
     <style>
         :root { --accent: #00ffcc; --bg: #050505; --water-accent: #00aaff; --chem-accent: #ff00cc; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
@@ -16,8 +16,6 @@
             z-index: 100; transition: 0.5s;
         }
         .menu-title { font-size: 42px; color: var(--accent); margin-bottom: 40px; text-transform: uppercase; letter-spacing: 5px; text-align: center; }
-        
-        /* Hier war das Grid auf Handys gequetscht - jetzt passt es sich wieder an! */
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; max-width: 600px; width: 90%; }
         
         .card { background: #1a1a1a; border: 2px solid #333; padding: 25px; border-radius: 15px; text-align: center; cursor: pointer; transition: 0.3s; font-size: 18px; font-weight: bold;}
@@ -68,8 +66,6 @@
         .pt-element span { font-size: 14px; }
 
         canvas { display: block; touch-action: none; }
-        
-        /* HIER WAR DER FEHLER! Ohne !important hat sich das Menü nicht mehr ausgeblendet! */
         .hidden { display: none !important; }
     </style>
 </head>
@@ -92,9 +88,9 @@
                 <div class="section">
                     <label>Werkzeug</label>
                     <select id="objectSelect">
-                        <option value="draw">✏️ Stift (Rund)</option>
+                        <option value="draw">✏️ Stift (Voll-Linie)</option>
                         <option value="block">⬛ Block (Eckig)</option>
-                        <option value="wing">✈️ Flügel</option>
+                        <option value="wing">✈️ Flügel (Aero)</option>
                         <option value="ball">⚽ Ball (schwimmt)</option>
                         <option value="stone">⚓ Stein (sinkt)</option>
                         <option value="smoke">💨 Rauch</option>
@@ -213,22 +209,26 @@
                     if (obs.type === 'wing' && activeGame === 'wind') {
                         let relX = (this.x - obs.x) / (obs.r * 2) + 0.5;
                         if (relX >= 0 && relX <= 1) {
-                            let profile = Math.sin(relX * Math.PI) * (obs.r * 0.5);
-                            if (Math.abs(this.y - obs.y) < profile + 10) {
-                                this.y = obs.y + (this.y < obs.y ? -profile - 5 : profile + 5);
-                                targetVx *= 1.3; // Bernoulli Beschleunigung
-                                this.turb += 0.1;
+                            // Asymmetrisches Tragflächen-Profil für echte Aerodynamik
+                            let profileTop = Math.sin(relX * Math.PI) * (obs.r * 0.4);
+                            let profileBottom = Math.sin(relX * Math.PI) * (obs.r * 0.1);
+                            
+                            if (this.y > obs.y - profileTop - 6 && this.y < obs.y + profileBottom + 6) {
+                                if (this.y < obs.y) {
+                                    this.y = obs.y - profileTop - 6;
+                                    targetVx *= 1.4; // Bernoulli-Effekt: Luft wird oben drüber beschleunigt
+                                    this.turb += 0.05;
+                                } else {
+                                    this.y = obs.y + profileBottom + 6;
+                                    targetVx *= 0.9; // Unten gebremst
+                                    this.turb += 0.2;
+                                }
                             }
                         }
                     } else if (dist < obs.r) {
                         let ang = Math.atan2(dy, dx);
-                        if(obs.type === 'block') { // Rechteckige Kollision vereinfacht über Radius
-                            this.x = obs.x + Math.cos(ang) * obs.r;
-                            this.y = obs.y + Math.sin(ang) * obs.r;
-                        } else {
-                            this.x = obs.x + Math.cos(ang) * obs.r;
-                            this.y = obs.y + Math.sin(ang) * obs.r;
-                        }
+                        this.x = obs.x + Math.cos(ang) * obs.r;
+                        this.y = obs.y + Math.sin(ang) * obs.r;
                         this.turb += 0.8;
                     }
                 });
@@ -248,8 +248,8 @@
                 this.x = x; this.y = y; this.r = r; this.vx = 0; this.vy = 0; this.dens = dens;
             }
             update() {
-                this.vy += 0.5 * this.dens; // Schwerkraft
-                this.vy -= 0.5; // Auftrieb
+                this.vy += 0.5 * this.dens; 
+                this.vy -= 0.5; 
                 this.vx *= 0.95; this.vy *= 0.95;
                 this.x += this.vx; this.y += this.vy;
                 if (this.y + this.r > height) { this.y = height - this.r; this.vy *= -0.5; }
@@ -264,7 +264,7 @@
         window.onresize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
         
         function startGame(mode) {
-            window.onresize(); // Sichert die korrekte Größe
+            window.onresize();
             activeGame = mode;
             document.getElementById('main-menu').classList.add('hidden');
             document.getElementById('game-container').style.display = 'block';
@@ -304,7 +304,6 @@
 
         function handleInput(e, isStart) {
             const rect = canvas.getBoundingClientRect();
-            // Sicherer Touch & Click Fallback
             const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
             const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
             
@@ -319,7 +318,27 @@
                 let tool = document.getElementById('objectSelect').value;
                 let size = parseInt(document.getElementById('penSize').value);
                 
-                if (tool === 'draw') obstacles.push({x, y, r: size, type:'draw'});
+                // Lückenloses Freihandzeichnen via Interpolation
+                if (tool === 'draw') {
+                    if (isStart) {
+                        obstacles.push({x, y, r: size, type:'draw'});
+                        window.lastDrawX = x; window.lastDrawY = y;
+                    } else if (window.lastDrawX !== undefined) {
+                        let dx = x - window.lastDrawX;
+                        let dy = y - window.lastDrawY;
+                        let dist = Math.hypot(dx, dy);
+                        let steps = Math.max(1, Math.ceil(dist / (size / 4)));
+                        
+                        for (let i = 1; i <= steps; i++) {
+                            obstacles.push({
+                                x: window.lastDrawX + dx * (i / steps), 
+                                y: window.lastDrawY + dy * (i / steps), 
+                                r: size, type:'draw'
+                            });
+                        }
+                        window.lastDrawX = x; window.lastDrawY = y;
+                    }
+                }
                 else if (tool === 'block') obstacles.push({x, y, r: size, type:'block'});
                 else if (isStart && tool === 'wing') obstacles.push({x, y, r: size * 2, type:'wing'});
                 else if (isStart && tool === 'ball') floatingObjects.push(new FloatingObject(x, y, size, 0.6));
@@ -341,7 +360,6 @@
                             chemObjects = chemObjects.filter(o => o !== draggedChem && o !== other);
                             chemObjects.push({id: r.res, x: nx, y: ny, r: 40, c: r.c, s: r.res, flashTicks: 0});
                         } else {
-                            // Rotes Blinken aktivieren
                             draggedChem.flashTicks = 24; 
                             other.flashTicks = 24;
                         }
@@ -366,9 +384,12 @@
                         ctx.fillStyle = "#444";
                         ctx.fillRect(obs.x - obs.r, obs.y - obs.r, obs.r*2, obs.r*2);
                     } else if (obs.type === 'wing') {
+                        // Realistisches, asymmetrisches Tragflächenprofil zeichnen
                         ctx.fillStyle = "#555";
                         ctx.beginPath();
-                        ctx.ellipse(obs.x, obs.y, obs.r, obs.r/4, 0, 0, Math.PI*2);
+                        ctx.moveTo(obs.x - obs.r, obs.y);
+                        ctx.bezierCurveTo(obs.x - obs.r/2, obs.y - obs.r*0.6, obs.x + obs.r/2, obs.y - obs.r*0.4, obs.x + obs.r, obs.y);
+                        ctx.bezierCurveTo(obs.x + obs.r/2, obs.y + obs.r*0.1, obs.x - obs.r/2, obs.y + obs.r*0.1, obs.x - obs.r, obs.y);
                         ctx.fill();
                     } else if (obs.type !== 'smoke') {
                         ctx.fillStyle = "#333"; 
@@ -381,21 +402,16 @@
 
             if (activeGame === 'chem') {
                 chemObjects.forEach(o => {
-                    // Blink-Logik prüfen
                     let isRedFrame = o.flashTicks > 0 && Math.floor(o.flashTicks / 4) % 2 === 0;
-                    
                     ctx.fillStyle = isRedFrame ? "#ff0000" : o.c; 
                     ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI*2); ctx.fill();
                     
-                    // Roter Rand und Timer herunterzählen
                     if (o.flashTicks > 0) {
                         ctx.strokeStyle = "#ff0000";
                         ctx.lineWidth = 3;
                         ctx.stroke();
                         o.flashTicks--;
                     }
-
-                    // Textfarbe wird weiß, wenn die Kugel rot blinkt, sonst schwarz
                     ctx.fillStyle = isRedFrame ? "#fff" : "#000"; 
                     ctx.textAlign = "center"; ctx.font = "bold 20px Arial";
                     ctx.fillText(o.s, o.x, o.y + 7);
@@ -409,11 +425,11 @@
         
         canvas.addEventListener('mousedown', e => { isDrawing=true; handleInput(e, true); });
         canvas.addEventListener('mousemove', e => handleInput(e, false));
-        window.addEventListener('mouseup', () => { isDrawing=false; checkChem(); });
+        window.addEventListener('mouseup', () => { isDrawing=false; window.lastDrawX = undefined; checkChem(); });
         
         canvas.addEventListener('touchstart', e => { e.preventDefault(); isDrawing=true; handleInput(e, true); }, {passive:false});
         canvas.addEventListener('touchmove', e => { e.preventDefault(); handleInput(e, false); }, {passive:false});
-        canvas.addEventListener('touchend', () => { isDrawing=false; checkChem(); });
+        canvas.addEventListener('touchend', () => { isDrawing=false; window.lastDrawX = undefined; checkChem(); });
 
         window.onresize(); animate();
     </script>

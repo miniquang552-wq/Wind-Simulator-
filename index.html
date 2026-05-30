@@ -119,6 +119,10 @@
         const ctx = canvas.getContext('2d');
         let width, height, particles = [], obstacles = [], floatingObjects = [], chemObjects = [];
         let activeGame = null, isDrawing = false, draggedChem = null;
+        
+        // Globale Variablen für die Kernschmelze
+        let screenShake = 0;
+        let meltdownTimer = 0;
 
         // --- DAS KOMPLETTE PERIODENSYSTEM (118 Elemente) ---
         const elements = [
@@ -185,6 +189,7 @@
             {s:'Lr', n:'Lawrencium', c:'#f9f', x:18, y:9}
         ];
 
+        // --- DIE 18 REZEPTE ---
         const recipes = [
             // Die Klassiker
             { req: ['H', 'O'], res: 'H2O', c:'#00aaff', n:'Wasser' },
@@ -388,12 +393,19 @@
             else {
                 chemObjects.forEach(other => {
                     if (other === draggedChem) return;
-                    if (Math.hypot(draggedChem.x - other.x, draggedChem.y - other.y) < 60) {
+                    if (Math.hypot(draggedChem.x - other.x, draggedChem.y - other.y) < 65) {
                         let r = recipes.find(rc => rc.req.includes(draggedChem.id) && rc.req.includes(other.id));
                         if (r) {
                             let nx = (draggedChem.x + other.x)/2, ny = (draggedChem.y + other.y)/2;
                             chemObjects = chemObjects.filter(o => o !== draggedChem && o !== other);
-                            chemObjects.push({id: r.res, x: nx, y: ny, r: 40, c: r.c, s: r.res, flashTicks: 0});
+                            
+                            // Spezialeffekt für Uran-Schmelzung
+                            if (r.res === '☢️') {
+                                meltdownTimer = 120; // Effekt dauert ca. 2 Sekunden
+                                screenShake = 30;    // Heftiges Wackeln
+                            } else {
+                                chemObjects.push({id: r.res, x: nx, y: ny, r: 40, c: r.c, s: r.res, flashTicks: 0});
+                            }
                         } else {
                             draggedChem.flashTicks = 24; 
                             other.flashTicks = 24;
@@ -405,6 +417,16 @@
         }
 
         function animate() {
+            // Bildschirm-Wackeln berechnen
+            ctx.save();
+            if (screenShake > 0) {
+                let dx = (Math.random() - 0.5) * screenShake;
+                let dy = (Math.random() - 0.5) * screenShake;
+                ctx.translate(dx, dy);
+                screenShake *= 0.95; // Wackeln lässt langsam nach
+                if (screenShake < 0.5) screenShake = 0;
+            }
+
             ctx.fillStyle = activeGame === 'chem' ? "#100515" : "#050505";
             ctx.fillRect(0, 0, width, height);
 
@@ -451,7 +473,27 @@
                     ctx.textAlign = "center"; ctx.font = "bold 20px Arial";
                     ctx.fillText(o.s, o.x, o.y + 7);
                 });
+
+                // Lustige Kernschmelze Animation
+                if (meltdownTimer > 0) {
+                    meltdownTimer--;
+                    // Radioaktiver Grünschleier
+                    ctx.fillStyle = `rgba(0, 255, 0, ${Math.random() * 0.3})`;
+                    ctx.fillRect(0, 0, width, height);
+
+                    // Lustiger Text & Emoji
+                    ctx.fillStyle = "white";
+                    ctx.font = "bold 50px 'Segoe UI'";
+                    ctx.textAlign = "center";
+                    ctx.fillText("OH NEIN! KERN-SCHMELZUNG! ☢️🫠", width/2, height/2);
+                    ctx.font = "100px Arial";
+                    ctx.fillText("🌭🔥", width/2, height/2 + 100); 
+                    
+                    if (meltdownTimer === 1) resetSim(); // Am Ende wird alles weggeschmolzen
+                }
             }
+            
+            ctx.restore(); // Wackeln Ende
             requestAnimationFrame(animate);
         }
 

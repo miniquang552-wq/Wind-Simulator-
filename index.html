@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Physics Sandbox Pro - Aero & Lines Update</title>
+    <title>Physik Labor</title>
     <style>
         :root { --accent: #00ffcc; --bg: #050505; --water-accent: #00aaff; --chem-accent: #ff00cc; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
@@ -72,7 +72,7 @@
 <body>
 
     <div id="main-menu">
-        <h1 class="menu-title">Physics Lab Pro</h1>
+        <h1 class="menu-title">Physik Labor</h1>
         <div class="grid">
             <div class="card" onclick="startGame('wind')">🌬️ Windkanal</div>
             <div class="card" onclick="startGame('water')">🌊 Wasser</div>
@@ -248,11 +248,21 @@
                 this.x = x; this.y = y; this.r = r; this.vx = 0; this.vy = 0; this.dens = dens;
             }
             update() {
-                this.vy += 0.5 * this.dens; 
-                this.vy -= 0.5; 
+                this.vy += 0.5 * this.dens; // Schwerkraft zieht Objekte immer nach unten
+                
+                // Auftrieb (Nach-oben-Treiben) gibt es nur im Wasser!
+                if (activeGame === 'water') {
+                    this.vy -= 0.5; 
+                }
+                
                 this.vx *= 0.95; this.vy *= 0.95;
                 this.x += this.vx; this.y += this.vy;
-                if (this.y + this.r > height) { this.y = height - this.r; this.vy *= -0.5; }
+                
+                // Bodenkollision
+                if (this.y + this.r > height) { 
+                    this.y = height - this.r; 
+                    this.vy *= -0.5; // Leichtes Abprallen vom Boden
+                }
             }
             draw() {
                 ctx.fillStyle = this.dens > 1 ? "#777" : "#f90";

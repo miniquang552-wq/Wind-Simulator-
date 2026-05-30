@@ -68,14 +68,14 @@
         canvas { display: block; touch-action: none; }
         .hidden { display: none !important; }
 
-        /* --- UI SCHMELZ-EFFEKT --- */
+        /* --- UI SCHMELZ-EFFEKT (Auf 10 Sekunden verlängert) --- */
         @keyframes meltHTML {
             0% { transform: translateY(0) skewY(0deg); opacity: 1; filter: blur(0px); }
             30% { transform: translateY(20px) skewY(2deg); filter: blur(2px); }
             100% { transform: translateY(150vh) skewY(15deg) scaleY(1.5); opacity: 0; filter: blur(15px); }
         }
         .ui-melting {
-            animation: meltHTML 4s cubic-bezier(0.5, 0, 0.8, 0.2) forwards !important;
+            animation: meltHTML 10s cubic-bezier(0.5, 0, 0.8, 0.2) forwards !important;
             pointer-events: none;
         }
     </style>
@@ -136,7 +136,7 @@
         let meltdownTimer = 0;
         let audioCtx = null;
 
-        // --- AUDIO INITIALISIERUNG (Browser-Sperre umgehen) ---
+        // --- AUDIO INITIALISIERUNG ---
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -146,10 +146,9 @@
             }
         }
 
-        // --- ALARM SOUND ---
+        // --- ALARM SOUND (Auf 10 Sekunden verlängert) ---
         function playAlarmSiren() {
             if (!audioCtx) initAudio(); 
-            
             if (audioCtx.state === 'suspended') audioCtx.resume();
             
             try {
@@ -161,22 +160,23 @@
                 osc.type = 'sawtooth'; 
                 osc.frequency.setValueAtTime(400, audioCtx.currentTime);
                 
-                for (let i = 0; i < 10; i++) {
+                // 16 Intervalle füllen die 10 Sekunden optimal mit Heultönen
+                for (let i = 0; i < 16; i++) {
                     osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + i * 0.6 + 0.3);
                     osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + i * 0.6 + 0.6);
                 }
                 
                 gain.gain.setValueAtTime(0.5, audioCtx.currentTime); 
-                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 6); 
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 10); 
                 
                 osc.start();
-                osc.stop(audioCtx.currentTime + 6); 
+                osc.stop(audioCtx.currentTime + 10); 
             } catch (e) {
                 console.log("Audio Fehler:", e);
             }
         }
 
-        // --- DAS KOMPLETTE PERIODENSYSTEM ---
+        // --- PERIODENSYSTEM DATEN ---
         const elements = [
             {s:'H', n:'Wasserstoff', c:'#fff', x:1, y:1}, {s:'He', n:'Helium', c:'#ffc0cb', x:18, y:1},
             {s:'Li', n:'Lithium', c:'#f66', x:1, y:2}, {s:'Be', n:'Beryllium', c:'#f96', x:2, y:2},
@@ -261,7 +261,7 @@
             { req: ['U', 'U'], res: '☢️', c:'#00ff00', n:'Radioaktiv' }
         ];
 
-        // --- PHYSIK KLASSEN ---
+        // --- PHYSIK SIMULATION ---
         class Particle {
             constructor(x, y, isSmoke = false) {
                 this.x = x; this.y = y; this.baseY = y;
@@ -325,7 +325,7 @@
             }
         }
 
-        // --- CORE FUNKTIONEN ---
+        // --- APP CONTROLS ---
         window.onresize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
         
         function startGame(mode) {
@@ -362,7 +362,7 @@
         }
 
         function handleInput(e, isStart) {
-            initAudio(); // Aktiviert Sound-Erlaubnis bei jeder Berührung
+            initAudio(); // Audio freischalten
             
             const rect = canvas.getBoundingClientRect();
             const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
@@ -408,10 +408,10 @@
                             
                             // --- KERN-SCHMELZUNG AUSGELÖST ---
                             if (r.res === '☢️') {
-                                meltdownTimer = 360; 
+                                meltdownTimer = 600; // Erhöht auf 600 Frames (ca. 10 Sekunden)
                                 screenShake = 50;
                                 
-                                // HTML UI zum Schmelzen bringen!
+                                // HTML UI schmilzt super langsam dank CSS
                                 document.getElementById('ui').classList.add('ui-melting');
                                 document.getElementById('chem-drawer').classList.add('ui-melting');
                                 
@@ -437,20 +437,20 @@
                     let dx = (Math.random() - 0.5) * screenShake;
                     let dy = (Math.random() - 0.5) * screenShake;
                     ctx.translate(dx, dy);
-                    screenShake *= 0.98; 
+                    screenShake *= 0.985; // Leicht verringertes Abklingen, damit es länger wackelt
                 }
 
+                // Glitch-Effekt auf dem Canvas
                 for (let i = 0; i < 60; i++) { 
                     let w = Math.random() * 20 + 5; 
                     let x = Math.random() * width;
                     let yShift = Math.random() * 10 + 2; 
-                    
                     ctx.drawImage(canvas, x, 0, w, height - yShift, x, yShift, w, height - yShift);
-                    
                     ctx.fillStyle = "rgba(20, 255, 20, 0.15)";
                     ctx.fillRect(x, 0, w, yShift);
                 }
 
+                // Text bleibt die vollen 10 Sekunden sichtbar
                 ctx.fillStyle = "white";
                 ctx.font = "bold 50px 'Segoe UI'";
                 ctx.textAlign = "center";
@@ -499,7 +499,7 @@
 
         function resetSim() { 
             particles = []; obstacles = []; floatingObjects = []; chemObjects = []; meltdownTimer = 0; 
-            // UI wieder heile machen
+            // Bringt die Menüs wieder in den Normalzustand
             document.getElementById('ui').classList.remove('ui-melting');
             document.getElementById('chem-drawer').classList.remove('ui-melting');
         }
@@ -511,6 +511,7 @@
             resetSim();
         }
         
+        // Listener für Maus und Touch
         canvas.addEventListener('mousedown', e => { isDrawing=true; handleInput(e, true); });
         canvas.addEventListener('mousemove', e => handleInput(e, false));
         window.addEventListener('mouseup', () => { isDrawing=false; window.lastDrawX = undefined; checkChem(); });

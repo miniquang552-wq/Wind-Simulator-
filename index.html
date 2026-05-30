@@ -120,11 +120,22 @@
         let width, height, particles = [], obstacles = [], floatingObjects = [], chemObjects = [];
         let activeGame = null, isDrawing = false, draggedChem = null;
         
-        // Globale Variablen für die Kernschmelze
+        // Globale Variablen
         let screenShake = 0;
         let meltdownTimer = 0;
+        let audioCtx = null; // Für den Alarm-Sound
 
-        // --- DAS KOMPLETTE PERIODENSYSTEM (118 Elemente) ---
+        // --- AUDIO INITIALISIERUNG (Browser-Sperre umgehen) ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // --- DAS KOMPLETTE PERIODENSYSTEM ---
         const elements = [
             {s:'H', n:'Wasserstoff', c:'#fff', x:1, y:1}, {s:'He', n:'Helium', c:'#ffc0cb', x:18, y:1},
             {s:'Li', n:'Lithium', c:'#f66', x:1, y:2}, {s:'Be', n:'Beryllium', c:'#f96', x:2, y:2},
@@ -212,8 +223,8 @@
 
         // --- ALARM SOUND ---
         function playAlarmSiren() {
+            if (!audioCtx) return; // Falls Audio nicht gestartet wurde, Abbruch
             try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.connect(gain);
@@ -228,11 +239,13 @@
                     osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + i * 0.6 + 0.6);
                 }
                 
-                gain.gain.setValueAtTime(0.15, audioCtx.currentTime); // Lautstärke
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime); // Lautstärke
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 6); // Am Ende ausfaden
+                
                 osc.start();
-                osc.stop(audioCtx.currentTime + 6); // Stoppt nach 6 Sekunden
+                osc.stop(audioCtx.currentTime + 6); 
             } catch (e) {
-                console.log("Audio konnte nicht abgespielt werden:", e);
+                console.log("Audio Fehler:", e);
             }
         }
 
@@ -337,6 +350,8 @@
         }
 
         function handleInput(e, isStart) {
+            initAudio(); // <--- HIER WEcken WIR DEN SOUND AUF!
+            
             const rect = canvas.getBoundingClientRect();
             const clientX = (e.touches && e.touches.length > 0) ? e.touches[0].clientX : e.clientX;
             const clientY = (e.touches && e.touches.length > 0) ? e.touches[0].clientY : e.clientY;
@@ -381,9 +396,9 @@
                             
                             // --- KERN-SCHMELZUNG AUSGELÖST ---
                             if (r.res === '☢️') {
-                                meltdownTimer = 360; // Ca. 6 Sekunden (bei 60 FPS)
+                                meltdownTimer = 360; // Ca. 6 Sekunden 
                                 screenShake = 50;    // Sehr heftiges Wackeln
-                                playAlarmSiren();    // Sound auslösen!
+                                playAlarmSiren();    // Sound abspielen!
                             } else {
                                 chemObjects.push({id: r.res, x: nx, y: ny, r: 40, c: r.c, s: r.res, flashTicks: 0});
                             }
@@ -398,7 +413,7 @@
 
         function animate() {
             // ==========================================
-            // NEU: DER SCHMELZ-EFFEKT (MELTDOWN)
+            // NEU: DER BESSERE SCHMELZ-EFFEKT (MELTDOWN)
             // ==========================================
             if (meltdownTimer > 0) {
                 meltdownTimer--;
@@ -412,17 +427,19 @@
                     screenShake *= 0.98; // Wackeln lässt langsam nach
                 }
 
-                // Pixel nach unten verschmieren (Melting Effect)
-                for (let i = 0; i < 30; i++) { 
-                    let w = Math.random() * 40 + 10; // Zufällige Streifenbreite
+                // Der Bildschirm rutscht in kleinen Streifen nach unten weg (Schmelz-Effekt)
+                for (let i = 0; i < 60; i++) { 
+                    let w = Math.random() * 20 + 5; // Breite des Tropfens
                     let x = Math.random() * width;
-                    let yShift = Math.random() * 20 + 5; // Nach unten rutschen
-                    ctx.drawImage(canvas, x, 0, w, height, x, yShift, w, height);
+                    let yShift = Math.random() * 10 + 2; // Wie tief es in diesem Frame rutscht
+                    
+                    // Nimmt einen Teil des Bildschirms und zeichnet ihn etwas weiter unten neu
+                    ctx.drawImage(canvas, x, 0, w, height - yShift, x, yShift, w, height - yShift);
+                    
+                    // Füllt die Lücke, die oben entsteht, mit radioaktivem Grün auf
+                    ctx.fillStyle = "rgba(20, 255, 20, 0.15)";
+                    ctx.fillRect(x, 0, w, yShift);
                 }
-
-                // Radioaktives Leuchten verdunkelt langsam den Screen
-                ctx.fillStyle = `rgba(10, 255, 10, 0.05)`;
-                ctx.fillRect(0, 0, width, height);
 
                 // Warn-Text
                 ctx.fillStyle = "white";
@@ -437,7 +454,7 @@
                 if (meltdownTimer === 1) resetSim(); 
                 
                 requestAnimationFrame(animate);
-                return; // Überspringt den normalen Zeichen-Code, damit die Zeit "einfriert" und nur noch schmilzt!
+                return; // Überspringt den normalen Zeichen-Code, damit alles flüssig wegschmilzt
             }
 
             // ==========================================

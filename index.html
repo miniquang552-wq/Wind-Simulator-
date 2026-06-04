@@ -68,7 +68,7 @@
         canvas { display: block; touch-action: none; }
         .hidden { display: none !important; }
 
-        /* --- UI SCHMELZ-EFFEKT (Auf 10 Sekunden verlängert) --- */
+        /* --- UI SCHMELZ-EFFEKT (10 Sekunden) --- */
         @keyframes meltHTML {
             0% { transform: translateY(0) skewY(0deg); opacity: 1; filter: blur(0px); }
             30% { transform: translateY(20px) skewY(2deg); filter: blur(2px); }
@@ -131,7 +131,6 @@
         let width, height, particles = [], obstacles = [], floatingObjects = [], chemObjects = [];
         let activeGame = null, isDrawing = false, draggedChem = null;
         
-        // Globale Variablen
         let screenShake = 0;
         let meltdownTimer = 0;
         let audioCtx = null;
@@ -146,7 +145,7 @@
             }
         }
 
-        // --- ALARM SOUND (Auf 10 Sekunden verlängert) ---
+        // --- ALARM SOUND ---
         function playAlarmSiren() {
             if (!audioCtx) initAudio(); 
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -160,7 +159,6 @@
                 osc.type = 'sawtooth'; 
                 osc.frequency.setValueAtTime(400, audioCtx.currentTime);
                 
-                // 16 Intervalle füllen die 10 Sekunden optimal mit Heultönen
                 for (let i = 0; i < 16; i++) {
                     osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + i * 0.6 + 0.3);
                     osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + i * 0.6 + 0.6);
@@ -261,21 +259,37 @@
             { req: ['U', 'U'], res: '☢️', c:'#00ff00', n:'Radioaktiv' }
         ];
 
-        // --- PHYSIK SIMULATION ---
+        // --- PRO-WIND PHYSIK ---
         class Particle {
             constructor(x, y, isSmoke = false) {
                 this.x = x; this.y = y; this.baseY = y;
-                this.vx = 0; this.vy = 0; this.turb = 0; this.active = true; this.isSmoke = isSmoke;
+                this.vx = 0; this.vy = 0; this.active = true;
+                this.isSmoke = isSmoke;
+                this.history = []; // Der Rauchschweif
+                this.maxLength = 40; // Länge der Linie
             }
+
             update() {
                 let speed = parseFloat(document.getElementById('speedRange').value);
+
+                // Linien-Logik nur für den Wind
+                if (activeGame === 'wind' && !this.isSmoke) {
+                    this.history.push({x: this.x, y: this.y});
+                    if (this.history.length > this.maxLength) this.history.shift();
+                }
+
+                // Zielgeschwindigkeit. Bei Wasser wackeln die Punkte weiter wie gewohnt.
                 let targetVx = (activeGame === 'wind') ? speed : (Math.sin(Date.now()*0.001 + this.y*0.015)*2.5);
-                let targetVy = (activeGame === 'wind') ? (this.baseY - this.y) * 0.05 : -0.5;
+                let targetVy = (activeGame === 'wind') ? (this.baseY - this.y) * 0.15 : -0.5;
 
                 obstacles.forEach(obs => {
                     if(obs.type === 'smoke') return;
-                    let dx = this.x - obs.x, dy = this.y - obs.y, dist = Math.hypot(dx, dy);
                     
+                    let dx = this.x - obs.x;
+                    let dy = this.y - obs.y;
+                    let dist = Math.hypot(dx, dy);
+                    
+                    // --- Flügelprofil (Asymmetrisch) ---
                     if (obs.type === 'wing' && activeGame === 'wind') {
                         let relX = (this.x - obs.x) / (obs.r * 2) + 0.5;
                         if (relX >= 0 && relX <= 1) {
@@ -285,28 +299,76 @@
                             if (this.y > obs.y - profileTop - 6 && this.y < obs.y + profileBottom + 6) {
                                 if (this.y < obs.y) {
                                     this.y = obs.y - profileTop - 6;
-                                    targetVx *= 1.4; this.turb += 0.05;
+                                    targetVx *= 1.4; // Oben drüber schneller
                                 } else {
                                     this.y = obs.y + profileBottom + 6;
-                                    targetVx *= 0.9; this.turb += 0.2;
+                                    targetVx *= 0.9; // Unten gebremst
                                 }
                             }
                         }
-                    } else if (dist < obs.r) {
-                        let ang = Math.atan2(dy, dx);
-                        this.x = obs.x + Math.cos(ang) * obs.r;
-                        this.y = obs.y + Math.sin(ang) * obs.r;
-                        this.turb += 0.8;
+                    } 
+                    // --- Normale Hindernisse (Laminar Flow Ausweich-Logik) ---
+                    else if (activeGame === 'wind') {
+                        let influenceRadius = obs.r * 2.4; 
+                        if (dist < influenceRadius) {
+                            let force = Math.pow(1 - dist / influenceRadius, 2);
+                            let angle = Math.atan2(dy, dx);
+                            
+                            // Sanftes Abdrängen nach oben/unten
+                            targetVy += Math.sin(angle) * force * speed * 1.8;
+                            // Staudruck-Effekt (vor dem Objekt langsamer, danach schneller)
+                            if (dx < 0) targetVx *= (0.5 + (dist/influenceRadius) * 0.5);
+                            else targetVx *= 1.2; 
+                        }
+                    } else {
+                        // Wasser-Kollision (Normal)
+                        if (dist < obs.r) {
+                            let angle = Math.atan2(dy, dx);
+                            this.x = obs.x + Math.cos(angle) * obs.r;
+                            this.y = obs.y + Math.sin(angle) * obs.r;
+                        }
+                    }
+
+                    // Feste Grenze (verhindert Eindringen in Objekte)
+                    if (dist < obs.r * 0.95) {
+                        let angle = Math.atan2(dy, dx);
+                        this.x = obs.x + Math.cos(angle) * obs.r;
+                        this.y = obs.y + Math.sin(angle) * obs.r;
                     }
                 });
 
-                this.vx += (targetVx - this.vx) * 0.1; this.vy += (targetVy - this.vy) * 0.1;
-                this.x += this.vx; this.y += this.vy; this.turb *= 0.9;
-                if (this.x > width + 50 || this.x < -50) this.active = false;
+                // Bewegung anwenden
+                this.vx += (targetVx - this.vx) * 0.12;
+                this.vy += (targetVy - this.vy) * 0.12;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Endlos-Loop (Damit die Linien niemals abreißen)
+                if (this.x > width + 50) {
+                    this.x = -50;
+                    this.history = [];
+                    if (activeGame === 'water') this.active = false; // Wasser-Partikel dürfen sterben
+                }
             }
+
             draw() {
-                ctx.fillStyle = this.isSmoke ? "#0fcc" : (activeGame === 'wind' ? `rgb(${this.turb*50},${200-this.turb*50},255)` : "#0af");
-                ctx.fillRect(this.x, this.y, this.isSmoke?4:2, this.isSmoke?4:2);
+                // Weiße durchgehende Linien im Windkanal
+                if (activeGame === 'wind' && !this.isSmoke) {
+                    if (this.history.length < 2) return;
+                    ctx.beginPath();
+                    ctx.moveTo(this.history[0].x, this.history[0].y);
+                    for (let i = 1; i < this.history.length; i++) {
+                        ctx.lineTo(this.history[i].x, this.history[i].y);
+                    }
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.9)"; 
+                    ctx.lineWidth = 4; 
+                    ctx.lineCap = "round";
+                    ctx.stroke();
+                } else {
+                    // Wasser oder Werkzeug-Rauch
+                    ctx.fillStyle = this.isSmoke ? "rgba(15, 204, 204, 0.6)" : "#0af";
+                    ctx.fillRect(this.x, this.y, 3, 3);
+                }
             }
         }
 
@@ -325,7 +387,7 @@
             }
         }
 
-        // --- APP CONTROLS ---
+        // --- CORE FUNKTIONEN ---
         window.onresize = () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; };
         
         function startGame(mode) {
@@ -406,15 +468,11 @@
                             let nx = (draggedChem.x + other.x)/2, ny = (draggedChem.y + other.y)/2;
                             chemObjects = chemObjects.filter(o => o !== draggedChem && o !== other);
                             
-                            // --- KERN-SCHMELZUNG AUSGELÖST ---
                             if (r.res === '☢️') {
-                                meltdownTimer = 600; // Erhöht auf 600 Frames (ca. 10 Sekunden)
+                                meltdownTimer = 600; 
                                 screenShake = 50;
-                                
-                                // HTML UI schmilzt super langsam dank CSS
                                 document.getElementById('ui').classList.add('ui-melting');
                                 document.getElementById('chem-drawer').classList.add('ui-melting');
-                                
                                 playAlarmSiren();
                             } else {
                                 chemObjects.push({id: r.res, x: nx, y: ny, r: 40, c: r.c, s: r.res, flashTicks: 0});
@@ -437,10 +495,9 @@
                     let dx = (Math.random() - 0.5) * screenShake;
                     let dy = (Math.random() - 0.5) * screenShake;
                     ctx.translate(dx, dy);
-                    screenShake *= 0.985; // Leicht verringertes Abklingen, damit es länger wackelt
+                    screenShake *= 0.985; 
                 }
 
-                // Glitch-Effekt auf dem Canvas
                 for (let i = 0; i < 60; i++) { 
                     let w = Math.random() * 20 + 5; 
                     let x = Math.random() * width;
@@ -450,7 +507,6 @@
                     ctx.fillRect(x, 0, w, yShift);
                 }
 
-                // Text bleibt die vollen 10 Sekunden sichtbar
                 ctx.fillStyle = "white";
                 ctx.font = "bold 50px 'Segoe UI'";
                 ctx.textAlign = "center";
@@ -470,15 +526,35 @@
             ctx.fillRect(0, 0, width, height);
 
             if (activeGame === 'wind' || activeGame === 'water') {
-                if (activeGame === 'wind' && Math.random() < 0.6) {
+                
+                // --- NEU: WINDKANAL GITTER SPAWN ---
+                if (activeGame === 'wind' && particles.length === 0) {
+                    for (let y = 50; y < height; y += 50) { 
+                        for (let x = -50; x < width; x += 30) { 
+                            particles.push(new Particle(x, y));
+                        }
+                    }
+                }
+                
+                // --- WASSER SPAWN (wie vorher) ---
+                if (activeGame === 'water' && Math.random() < 0.6) {
                     for(let y=0; y<height; y+=25) particles.push(new Particle(-10, y + Math.random()*10));
                 }
+
                 obstacles.forEach(obs => {
                     if (obs.type === 'smoke' && Math.random() < 0.2) particles.push(new Particle(obs.x, obs.y, true));
                     if (obs.type === 'block') { ctx.fillStyle = "#444"; ctx.fillRect(obs.x - obs.r, obs.y - obs.r, obs.r*2, obs.r*2); } 
-                    else if (obs.type === 'wing') { ctx.fillStyle = "#555"; ctx.beginPath(); ctx.moveTo(obs.x - obs.r, obs.y); ctx.bezierCurveTo(obs.x - obs.r/2, obs.y - obs.r*0.6, obs.x + obs.r/2, obs.y - obs.r*0.4, obs.x + obs.r, obs.y); ctx.bezierCurveTo(obs.x + obs.r/2, obs.y + obs.r*0.1, obs.x - obs.r/2, obs.y + obs.r*0.1, obs.x - obs.r, obs.y); ctx.fill(); } 
+                    else if (obs.type === 'wing') { 
+                        ctx.fillStyle = "#555"; 
+                        ctx.beginPath(); 
+                        ctx.moveTo(obs.x - obs.r, obs.y); 
+                        ctx.bezierCurveTo(obs.x - obs.r/2, obs.y - obs.r*0.6, obs.x + obs.r/2, obs.y - obs.r*0.4, obs.x + obs.r, obs.y); 
+                        ctx.bezierCurveTo(obs.x + obs.r/2, obs.y + obs.r*0.1, obs.x - obs.r/2, obs.y + obs.r*0.1, obs.x - obs.r, obs.y); 
+                        ctx.fill(); 
+                    } 
                     else if (obs.type !== 'smoke') { ctx.fillStyle = "#333"; ctx.beginPath(); ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI*2); ctx.fill(); }
                 });
+                
                 floatingObjects.forEach(o => { o.update(); o.draw(); });
                 particles = particles.filter(p => { p.update(); p.draw(); return p.active; });
             }
@@ -499,7 +575,6 @@
 
         function resetSim() { 
             particles = []; obstacles = []; floatingObjects = []; chemObjects = []; meltdownTimer = 0; 
-            // Bringt die Menüs wieder in den Normalzustand
             document.getElementById('ui').classList.remove('ui-melting');
             document.getElementById('chem-drawer').classList.remove('ui-melting');
         }
@@ -511,7 +586,6 @@
             resetSim();
         }
         
-        // Listener für Maus und Touch
         canvas.addEventListener('mousedown', e => { isDrawing=true; handleInput(e, true); });
         canvas.addEventListener('mousemove', e => handleInput(e, false));
         window.addEventListener('mouseup', () => { isDrawing=false; window.lastDrawX = undefined; checkChem(); });
